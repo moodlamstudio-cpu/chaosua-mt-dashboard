@@ -15,8 +15,9 @@ var piePlugin={id:"piePlugin",afterDraw:function(chart){var ctx=chart.ctx;var o=
  if(o.label!==undefined){ctx.save();ctx.textAlign="center";ctx.textBaseline="middle";ctx.fillStyle="#0f172a";ctx.font="700 22px Arial,sans-serif";ctx.fillText(String(o.label),cx,cy);ctx.restore();}}};
 function sel(){return D[cur];}
 function selAll(){
-  var out={label:selChans.map(function(i){return D[i]&&D[i].label||i;}).join(" + "),monthly:{},history:{},category:{items:[]},annual:{},s_actual:{},s_le:{},s_ly:{},s_aop:{},monthly_by_cat:{},history_by_cat:{},annual_by_cat:{},monthly_by_sku:{},history_by_sku:{},annual_by_sku:{}};
+  var out={label:selChans.map(function(i){return D[i]&&D[i].label||i;}).join(" + "),monthly:{},history:{},category:{items:[]},annual:{},s_actual:{},s_le:{},s_ly:{},s_aop:{},monthly_by_cat:{},history_by_cat:{},annual_by_cat:{},monthly_by_sku:{},history_by_sku:{},annual_by_sku:{},_planningOK:true};
   selChans.forEach(function(id){var c=D[id];if(!c)return;
+    if(!hasS(c))out._planningOK=false;
     for(var m=1;m<=12;m++){out.monthly[String(m)]=num(out.monthly[String(m)])+num(c.monthly&&c.monthly[String(m)]||0);
       if(c.s_actual)out.s_actual[String(m)]=num(out.s_actual[String(m)])+num(c.s_actual[String(m)]||0);
       if(c.s_le)out.s_le[String(m)]=num(out.s_le[String(m)])+num(c.s_le[String(m)]||0);
@@ -68,16 +69,20 @@ function load(){
  }).catch(function(e){setT("mTable","Load error: "+e.message);});
 }
 function rangeSum(map,f,t){if(!map)return 0;var s=0;for(var m=f;m<=t;m++)s+=num(map[String(m)]);return s;}
-function hasS(ch){ return ch && ch.s_actual && ch.s_le && ch.s_ly && ch.s_aop; }
+function hasSeriesData(o){if(!o)return false;for(var k in o){if(num(o[k])!==0)return true;}return false;}
+function actSeries(c){if(c&&hasS(c))return c.s_actual;return c&&c.monthly;}
+function hasS(ch){ // genuine planning series required; empty aggregate objects must NOT count
+  return ch && ch._planningOK!==false && hasSeriesData(ch.s_actual) && hasSeriesData(ch.s_le) && hasSeriesData(ch.s_ly) && hasSeriesData(ch.s_aop);
+}
 function renderAll(){
   try{
-    var c=C();var __foc__=currentFocus(c);var __fn=__foc__&&__foc__.name?(" "+String.fromCharCode(8226)+" "+__foc__.name):"";setV("tgY",label()+__fn);setV("tgM",label()+__fn);setV("tgTbl",label()+__fn);setV("tgCat",activeCat?("Category "+String.fromCharCode(8226)+" "+activeCat):"Category");setV("tgSku",label()+__fn);
+    var c=C();var __foc__=currentFocus(c);var __fn=__foc__&&__foc__.name?(" "+String.fromCharCode(8226)+" "+__foc__.name):"";setV("tgY",label()+__fn);setV("tgM",label()+__fn);setV("tgTbl",label()+__fn);setV("tgCat",activeCat?("Category "+String.fromCharCode(8226)+" "+activeCat):label());setV("tgSku",label()+__fn);
     var ok=hasS(c);
     var rangeTxt=MONTHS[selFrom-1]+"-"+MONTHS[selTo-1];
     setV("lblAct",rangeTxt);setV("lblLE",rangeTxt);setV("lblLY",rangeTxt);setV("lblAOP",rangeTxt);
     if(!ok){
       // Channels without planning series show Actual only.
-      var a=rangeSum(c.s_actual||c.monthly,selFrom,selTo);
+      var a=rangeSum(actSeries(c),selFrom,selTo);
       setT("kACT",fmt(a)+' <small>MB</small>');setT("kACTuntil",MONTHS[lastClosed-1]+" "+fy);setT("kACTdate","12 Aug 2026");
       setT("kLE","\u2014");setT("kGap","\u2014");
       setT("kLY","\u2014");setT("kLYcmp","No LY data");
@@ -110,7 +115,7 @@ function renderAll(){
   }catch(e){setT("tgM","ERR: "+e.message);}
 }
 function chgBg(m,sel){return m===sel?"#e11d48":"#f87171";}
-function sv(c,key,m){ if(c&&c[key]) return num(c[key][String(m)]); if(c&&c.monthly) return num(c.monthly[String(m)]); return 0; }
+function sv(c,key,m){ if(c&&c[key]&&hasSeriesData(c[key])) return num(c[key][String(m)]); if(c&&c.monthly) return num(c.monthly[String(m)]); return 0; }
 function currentFocus(c){if(activeSku&&c.monthly_by_sku&&c.monthly_by_sku[activeSku])return {name:activeSku,series:c.monthly_by_sku[activeSku],annual:c.annual_by_sku&&c.annual_by_sku[activeSku],history:c.history_by_sku&&c.history_by_sku[activeSku]};if(activeCat&&c.monthly_by_cat&&c.monthly_by_cat[activeCat])return {name:activeCat,series:c.monthly_by_cat[activeCat],annual:c.annual_by_cat&&c.annual_by_cat[activeCat],history:c.history_by_cat&&c.history_by_cat[activeCat]};return null;}
 function pickKpi(type,value){if(type==="year"){if(kpiPick&&kpiPick.type==="month")kpiPick={type:"yearMonth",year:String(value),month:+kpiPick.value};else if(kpiPick&&kpiPick.type==="yearMonth")kpiPick=(String(kpiPick.year)===String(value))?{type:"month",value:kpiPick.month}:{type:"yearMonth",year:String(value),month:kpiPick.month};else{kpiPick=(kpiPick&&kpiPick.type==="year"&&String(kpiPick.value)===String(value))?null:{type:"year",value:String(value)};}}else{if(kpiPick&&kpiPick.type==="year")kpiPick={type:"yearMonth",year:String(kpiPick.value),month:+value};else if(kpiPick&&kpiPick.type==="yearMonth")kpiPick=(+kpiPick.month===+value)?{type:"year",value:String(kpiPick.year)}:{type:"yearMonth",year:String(kpiPick.year),month:+value};else kpiPick=(kpiPick&&kpiPick.type==="month"&&+kpiPick.value===+value)?null:{type:"month",value:+value};}setTimeout(renderAll,0);}
 function applyKpiPick(){var c=C(),focus=currentFocus(c);if(kpiPick.type==="year"){var y=String(kpiPick.value),annual=(focus&&focus.annual)||c.annual||{},prev=String(+y-1);setV("lblAct",y);setT("kACT",fmt(annual[y])+' <small>MB</small>');setT("kACTuntil","Full year / YTD");setV("lblLE",y);setT("kLE","\u2014");setT("kGap","\u2014");setV("lblLY",prev);setT("kLY",annual[prev]!=null?fmt(annual[prev])+' <small>MB</small>':"\u2014");setT("kLYcmp","Previous year");setV("lblAOP",y);setT("kAOP","\u2014");setT("kAOPcmp","No annual AOP");return;}
@@ -124,7 +129,7 @@ function drawMonthly(){destroy("cMonthly");var c=C();var lb=[],act=[],le=[],ly=[
  setV("tgM",(focusName?(label()+" \u2022 "+focusName):label())+(historical?" \u2022 "+viewYear:""));
  ["lgLE","lgAOP"].forEach(function(id){var e=document.getElementById(id);if(e)e.style.display=(focus||historical)?"none":"inline-flex";});
  var actualSeries=historical?(history[String(viewYear)]||{}):(focus?focus.actual:null),lySeries=historical?(history[String(viewYear-1)]||{}):(focus?focus.ly:null),maxMonth=historical?12:lastClosed,latestVisible=Math.min(selTo,maxMonth);
- for(var i=1;i<=12;i++){var m=i;lb.push((m>=selFrom&&m<=selTo)?MONTHS[m-1]:"");act.push((m<=maxMonth&&m>=selFrom&&m<=selTo)?((focus||historical)?num(actualSeries[String(m)]):sv(c,"s_actual",m)):null);le.push((seriesOk&&m>=lastClosed&&m>=selFrom&&m<=selTo)?sv(c,"s_le",m):null);ly.push(((seriesOk||focus||historical)&&m>=selFrom&&m<=selTo)?((focus||historical)?num(lySeries[String(m)]):sv(c,"s_ly",m)):null);aop.push((seriesOk&&m>=selFrom&&m<=selTo)?sv(c,"s_aop",m):null);}
+ for(var i=1;i<=12;i++){var m=i;lb.push((m>=selFrom&&m<=selTo)?MONTHS[m-1]:"");act.push((m<=maxMonth&&m>=selFrom&&m<=selTo)?((focus||historical)?num(actualSeries[String(m)]):num(actSeries(c)[String(m)])):null);le.push((seriesOk&&m>=lastClosed&&m>=selFrom&&m<=selTo)?sv(c,"s_le",m):null);ly.push(((seriesOk||focus||historical)&&m>=selFrom&&m<=selTo)?((focus||historical)?num(lySeries[String(m)]):sv(c,"s_ly",m)):null);aop.push((seriesOk&&m>=selFrom&&m<=selTo)?sv(c,"s_aop",m):null);}
  charts["cMonthly"]=new Chart(document.getElementById("cMonthly"),{data:{labels:lb,datasets:[
   {type:"bar",label:"Actual",data:act,backgroundColor:act.map(function(v,i){var picked=kpiPick&&(kpiPick.type==="month"?+kpiPick.value:(kpiPick.type==="yearMonth"?+kpiPick.month:null));return picked===i+1?"#7f1d1d":((i+1)===latestVisible?"#be123c":"#f87171");}),borderRadius:5,barPercentage:.65},
   {type:"bar",label:"LE",data:le,backgroundColor:"#cbd5e1",borderRadius:5,barPercentage:.65},
@@ -142,14 +147,14 @@ function drawTable(){var c=C(),focusInfo=currentFocus(c),focus=focusInfo&&focusI
  for(var m=1;m<=12;m++){if(m<selFrom||m>selTo)continue;
   var act,le,ly,aop;
   if(focus){act=(m<=lastClosed?num(focus.actual[String(m)]):null);le=null;ly=num(focus.ly&&focus.ly[String(m)]);aop=null;}
-  else{act=(m<=lastClosed)?sv(c,"s_actual",m):null;le=seriesOk?((m<lastClosed)?act:sv(c,"s_le",m)):null;ly=seriesOk?sv(c,"s_ly",m):null;aop=seriesOk?sv(c,"s_aop",m):null;}
+  else{act=(m<=lastClosed)?num(actSeries(c)[String(m)]):null;le=seriesOk?((m<lastClosed)?act:sv(c,"s_le",m)):null;ly=seriesOk?sv(c,"s_ly",m):null;aop=seriesOk?sv(c,"s_aop",m):null;}
   var vly=(act!=null&&ly!=null)?(act-ly):null,ply=(vly!=null&&ly>0)?(vly/ly*100):null,vaop=(act!=null&&aop!=null)?(act-aop):null,paop=(vaop!=null&&aop>0)?(vaop/aop*100):null;
   ta+=act||0;ty+=ly||0;tvly+=vly||0;if(isTotal){tl+=le||0;ta2+=aop||0;tvaop+=vaop||0;}
  h+="<tr><td>"+MONTHS[m-1]+"</td><td>"+(act==null?"\u2014":fmt(act))+"</td><td>"+(le==null?"\u2014":fmt(le))+"</td><td>"+(ly==null?"\u2014":fmt(ly))+"</td><td>"+(aop==null?"\u2014":fmt(aop))+"</td>"+cmpDoubleCell("VS LY",vly,ply)+cmpDoubleCell("VS AOP",vaop,paop)+"</tr>";}
  var ptvly=(ty>0)?(tvly/ty*100):null,ptvaop=(isTotal&&ta2>0)?(tvaop/ta2*100):null;
  h+='<tr class="total"><td>Total</td><td>'+fmt(ta)+'</td><td>'+(isTotal?fmt(tl):'\u2014')+'</td><td>'+fmt(ty)+'</td><td>'+(isTotal?fmt(ta2):'\u2014')+'</td>'+cmpDoubleCell("Total VS LY",tvly,ptvly)+(isTotal?cmpDoubleCell("Total VS AOP",tvaop,ptvaop):'<td>\u2014</td><td>\u2014</td>')+'</tr></tbody>';
  setT("mTable",h);}
-function drawCategory(c){var el=document.getElementById("cCat");if(!el||!Chart)return;destroy("cCat");var cT=document.getElementById("tgCat");if(cT)cT.textContent=(activeCat?("Category \u2022 "+activeCat):"Category");
+function drawCategory(c){var el=document.getElementById("cCat");if(!el||!Chart)return;destroy("cCat");var cT=document.getElementById("tgCat");if(cT)cT.textContent=(activeCat?("Category \u2022 "+activeCat):label());
  var C2=(c.category&&c.category.items)?c.category.items:[];if(!C2.length){setT("catLegend","No data");return;}
  var tot=c.total_mb,focus=currentFocus(c);if(focus&&focus.series)tot=rangeSum(focus.series.actual,1,lastClosed);var vals=C2.map(function(x){return x.mb;});var colors=C2.map(function(x,i){return (activeCat===x.name)?dark(CATCOLR[i%CATCOLR.length]):CATCOLR[i%CATCOLR.length];});
  var _sd=C2.map(function(x){return {pct:x.pct||0};});
