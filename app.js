@@ -61,7 +61,7 @@ function renderAll(){
       var aop=rangeSum(c.s_aop,selFrom,selTo);
       setT("kACT",fmt(a)+' <small>MB</small>');setT("kACTuntil",MONTHS[lastClosed-1]+" "+fy);setT("kACTdate",MONTHS[lastClosed-1]+" "+fy);
             var leDiff=le-a,leP=a>0?(leDiff/a*100):0,leCls=leDiff>=0?"up":"down";
-      setT("kLE",fmt(le)+' <small>MB</small>');setT("kGap",Math.abs(leDiff).toFixed(1)+" MB ("+(leDiff>=0?"+":"")+leP.toFixed(1)+"%)");document.getElementById("kGap").className=leCls;
+      setT("kLE",fmt(le)+' <small>MB</small>');setT("kGap",(leDiff>=0?"+":"-")+Math.abs(leDiff).toFixed(1)+" MB ("+(leDiff>=0?"+":"-")+Math.abs(leP).toFixed(1)+"%)");document.getElementById("kGap").className=leCls;
       var lyDiff=a-ly,lyP=ly>0?(lyDiff/ly*100):0,lyCls=lyDiff>=0?"up":"down";
       setT("kLY",fmt(ly)+' <small>MB</small>');setT("kLYgap",Math.abs(lyDiff).toFixed(1)+" MB");setT("kLYpc",(lyDiff>=0?"+":"")+lyP.toFixed(1)+"%");document.getElementById("kLYgap").className=lyCls;
       var vs= aop? (le/aop*100) : 0;
