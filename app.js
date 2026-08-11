@@ -71,7 +71,7 @@ function renderAll(){
     }
     setV("hDate",MONTHS[lastClosed-1]+" "+fy);
     drawAnnual();drawMonthly();drawTable();
-    drawCategory(c);drawSku(c);
+    drawCategory(c);drawSku(c);drawChannelSummary();
     if(kpiPick)applyKpiPick();
   }catch(e){setT("tgM","ERR: "+e.message);}
 }
@@ -135,4 +135,40 @@ function drawSku(c){var tot=c.total_mb||0;var list;
  var shown=list.slice(0,10);shown.forEach(function(s,i){var cat=s.cat||activeCat||"";var p=tot?(s.mb/tot*100):0;var bg=activeSku===s.name?'background:#fef3c7;':'';h+='<tr class="skuro" data-i="'+i+'" style="cursor:pointer;'+bg+'"><td>'+(i+1)+'</td><td style="max-width:220px;white-space:normal;text-align:left">'+s.name+'</td><td>'+cat+'</td><td style="text-align:right">'+fmt(s.mb)+'</td><td style="text-align:right">'+p.toFixed(1)+'%</td></tr>';});
  h+='</tbody>';setT("skuTable",h);
  var rows=document.querySelectorAll(".skuro");for(var i=0;i<rows.length;i++){(function(r){r.onclick=function(){var s=shown[+r.dataset.i];if(s)toggleSku(s.name,s.cat||activeCat||"");};})(rows[i]);}}
+function chGrowthYTD(d,x){
+  // LY ผ่าน history ชุดปี 2025 (YTD ถึง lastClosed) เทียบ total_mb ของปีนี้
+  var ly=0,h=(d&&d.history&&d.history[x]);if(h){for(var m=1;m<=lastClosed;m++)ly+=num(h[String(m)]);}
+  var a=num(d&&d.total_mb);
+  var g=(ly>0)?((a-ly)/ly*100):null;
+  return {a:a,ly:ly,g:g};
+}
+var CHLOGO={'7Eleven':'7-Eleven','MAKRO':'MAKRO',"LOTUS'":"LOTUS'",'BigC':'Big C','Tops':'Tops','CJ Express':'CJ','Jiffy':'Jiffy','Foodland':'Foodland','FamilyMart':'FamilyMart','Golden Place':'GP','Central food wholesales':'CF','Maxmart':'Maxmart','MaxValue':'MaxValue','Villa market':'Villa','Lawson':'Lawson'};
+function chanGrowth(d){
+  var ly=0,h=(d&&d.history&&d.history["2025"]);if(h){for(var m=1;m<=lastClosed;m++)ly+=num(h[String(m)]);}
+  var a=num(d&&d.total_mb);
+  var g=(ly>0)?((a-ly)/ly*100):null;
+  return {a:a,ly:ly,g:g};
+}
+function drawChannelSummary(){
+  var el=document.getElementById("chTable");if(!el)return;
+  var rows=[],tot=0;
+  (D._channels||[]).forEach(function(ch){
+    if(ch.id==="MT")return;
+    var d=D[ch.id];if(!d)return;
+    var g=chanGrowth(d);
+    rows.push({id:ch.id,label:(d.label||ch.label),lg:CHLOGO[ch.id]||(d.label||ch.label),a:g.a,ly:g.ly,g:g.g});
+    tot+=g.a;
+  });
+  rows.sort(function(x,y){return y.a-x.a;});
+  var h='<table><thead><tr><th>Channel</th><th>YTD 2026 (MB)</th><th>Share %</th><th>LY 2025 (MB)</th><th>Growth %</th></tr></thead><tbody>';
+  rows.forEach(function(r){
+    var sh=tot?(r.a/tot*100):0;
+    var grow=r.g;
+    var cls=(grow!=null&&grow>=0)?"up":"down";
+    var gtxt=(grow==null)?"\u2014":((grow>=0?"+":"")+grow.toFixed(1)+"%");
+    h+='<tr><td style="text-align:left"><span class="chlogo">'+r.lg+'</span></td><td>'+fmt(r.a)+'</td><td>'+sh.toFixed(1)+'%</td><td>'+fmt(r.ly)+'</td><td class="'+cls+'">'+gtxt+'</td></tr>';
+  });
+  h+='</tbody></table>';
+  el.innerHTML=h;
+}
 load();
