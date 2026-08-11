@@ -156,7 +156,7 @@ function drawChannelSummary(){
     if(ch.id==="MT")return;
     var d=D[ch.id];if(!d)return;
     var g=chanGrowth(d);
-    rows.push({id:ch.id,label:(d.label||ch.label),a:g.a,ly:g.ly,g:g.g});
+    rows.push({id:ch.id,label:(ch.id==="LOTUS'"?"Lotus's":(d.label||ch.label)),a:g.a,ly:g.ly,g:g.g});
     tot+=g.a;
   });
   rows.sort(function(x,y){return y.a-x.a;});
@@ -168,7 +168,7 @@ function drawChannelSummary(){
     var gtxt=(grow==null)?"\u2014":((grow>=0?"+":"")+grow.toFixed(1)+"%");
     var lg="logos/"+r.id+".png";
     h+='<div class="chcard">';
-    h+='  <div class="chhead"><img class="chimg" src="'+lg+'" alt="'+r.label+'" onerror="this.style.display=\'none\';this.nextElementSibling.style.display=\'inline\'"><span class="chfallback" style="display:none">'+r.label.charAt(0)+'</span><span class="chname">'+r.label+'</span></div>';
+    h+='  <div class="chhead"><span class="chname">'+r.label+'</span></div>';
     h+='  <div class="chcon">'+sh.toFixed(1)+'%<small>Con</small></div>';
     h+='  <div class="chval">'+fmt(r.a)+'<small>MB</small></div>';
     h+='  <div class="chly">LY '+fmt(r.ly)+' <span class="'+cls+'">'+gtxt+'</span></div>';
