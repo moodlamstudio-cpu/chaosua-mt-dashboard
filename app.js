@@ -16,7 +16,7 @@ var piePlugin={id:"piePlugin",afterDraw:function(chart){var ctx=chart.ctx;var o=
  chart.data.datasets.forEach(function(ds,di){var m=chart.getDatasetMeta(di);if(!ds._sd||!m||!m.data)return;m.data.forEach(function(arc,i){var d=ds._sd[i];if(!d||d.pct<5)return;var an=(arc.startAngle+arc.endAngle)/2,r=(arc.outerRadius+arc.innerRadius)/2,x=cx+Math.cos(an)*r,y=cy+Math.sin(an)*r;ctx.save();ctx.fillStyle="#fff";ctx.font="bold 12px sans-serif";ctx.textAlign="center";ctx.textBaseline="middle";ctx.fillText(d.pct.toFixed(0)+"%",x,y);ctx.restore();});});}};
 function sel(){return D[cur];}
 function selAll(){
-  var out={label:selChans.map(function(i){return D[i]&&D[i].label||i;}).join(" + "),monthly:{},history:{},category:{items:[]},annual:{},s_actual:{},s_le:{},s_ly:{},s_aop:{}};
+  var out={label:selChans.map(function(i){return D[i]&&D[i].label||i;}).join(" + "),monthly:{},history:{},category:{items:[]},annual:{},s_actual:{},s_le:{},s_ly:{},s_aop:{},monthly_by_cat:{},history_by_cat:{},annual_by_cat:{}};
   selChans.forEach(function(id){var c=D[id];if(!c)return;
     for(var m=1;m<=12;m++){out.monthly[String(m)]=num(out.monthly[String(m)])+num(c.monthly&&c.monthly[String(m)]||0);
       if(c.s_actual)out.s_actual[String(m)]=num(out.s_actual[String(m)])+num(c.s_actual[String(m)]||0);
@@ -26,6 +26,8 @@ function selAll(){
     ["2025","2026"].forEach(function(y){out.history[y]=out.history[y]||{};var h=c.history&&c.history[y]||{};for(var m=1;m<=12;m++)out.history[y][String(m)]=num(out.history[y][String(m)])+num(h[String(m)]||0);});
     var an=c.annual||{};Object.keys(an).forEach(function(y){out.annual[y]=num(out.annual[y]||0)+num(an[y]);});
     var ci=c.category&&c.category.items||[];ci.forEach(function(it){var ex=null;for(var k=0;k<out.category.items.length;k++)if(out.category.items[k].name===it.name){ex=out.category.items[k];break;}if(ex)ex.mb=ex.mb+it.mb;else out.category.items.push({name:it.name,mb:it.mb,pct:it.pct});});
+    // รวม by_cat (สำหรับ currentFocus คลิกแคท)
+    var mbc=c.monthly_by_cat||{},hbc=c.history_by_cat||{},abc=c.annual_by_cat||{};Object.keys(mbc).forEach(function(cat){out.monthly_by_cat[cat]=out.monthly_by_cat[cat]||{actual:{},ly:{}};var o=out.monthly_by_cat[cat],src=mbc[cat]||{};(src.actual||{}).forEach?null:null;for(var m=1;m<=12;m++){o.actual[String(m)]=num(o.actual[String(m)]||0)+num((src.actual||{})[String(m)]||0);o.ly[String(m)]=num(o.ly[String(m)]||0)+num((src.ly||{})[String(m)]||0);}});Object.keys(hbc).forEach(function(cat){out.history_by_cat[cat]=out.history_by_cat[cat]||{};var o=out.history_by_cat[cat],src=hbc[cat]||{};Object.keys(src).forEach(function(y){o[y]=o[y]||{};for(var m=1;m<=12;m++)o[y][String(m)]=num(o[y][String(m)]||0)+num((src[y]||{})[String(m)]||0);});});Object.keys(abc).forEach(function(cat){out.annual_by_cat[cat]=out.annual_by_cat[cat]||{};var o=out.annual_by_cat[cat],src=abc[cat]||{};Object.keys(src).forEach(function(y){o[y]=num(o[y]||0)+num(src[y]||0);});});
   });
   out.total_mb=0;for(var m=1;m<=12;m++)out.total_mb+=num(out.monthly[String(m)]||0);
   return out;
@@ -166,6 +168,19 @@ function chGrowthYTD(d,x){
 }
 var CHLOGO={'7Eleven':'7-Eleven','MAKRO':'MAKRO',"LOTUS'":"LOTUS'",'BigC':'Big C','Tops':'Tops','CJ Express':'CJ','Jiffy':'Jiffy','Foodland':'Foodland','FamilyMart':'FamilyMart','Golden Place':'GP','Central food wholesales':'CF','Maxmart':'Maxmart','MaxValue':'MaxValue','Villa market':'Villa','Lawson':'Lawson'};
 function selectChan(id){cur=id;selChans=[id];activeCat=null;activeSku=null;kpiPick=null;if(document.getElementById("selChannel")){var c=document.getElementById("selChannel").querySelectorAll("input[type=checkbox]");for(var i=0;i<c.length;i++)c[i].checked=(c[i].value===id);}renderAll();}
+
+function catMaps(cat){ // {byChan:{chid:{monthly,history,annual}}, tot, byMonth{...}}
+  var byChan={}, totMap={};
+  (selChans.length?selChans:["MAKRO"]).forEach(function(chid){
+    var cc=D[chid];if(!cc)return;
+    var mb=cc.monthly_by_cat&&cc.monthly_by_cat[cat], hb=cc.history_by_cat&&cc.history_by_cat[cat], ab=cc.annual_by_cat&&cc.annual_by_cat[cat];
+    if(!mb&&!hb&&!ab)return;
+    var mo=mb&&mb.actual||{}, ly=mb&&mb.ly||{};
+    byChan[chid]={monthly:mo,ly:ly,history:hb||{},annual:ab||{}};
+    for(var m=1;m<=12;m++){totMap[String(m)]=num(totMap[String(m)]||0)+num(mo[String(m)]||0);}
+  });
+  return {byChan:byChan,totMap:totMap};
+}
 function chanGrowth(d){
   var f=num(selFrom),t=num(selTo);
   var str=String(fy-1);
@@ -178,10 +193,16 @@ function chanGrowth(d){
 function drawChannelSummary(){
   var el=document.getElementById("chTable");if(!el)return;
   var rows=[],tot=0;
+  var focCat=activeCat||activeSku&&activeSku, focInfo=currentFocus(C()), focusName=focInfo&&focInfo.name;
   (D._channels||[]).forEach(function(ch){
     if(ch.id==="MT")return;
     var d=D[ch.id];if(!d)return;
-    var g=chanGrowth(d);
+    var g;
+    if(focusName){ // โหมดสินค้าโฟกัส: ยอดสินค้านั้นต่อห้าง
+      var cm=D[ch.id].monthly_by_cat&&D[ch.id].monthly_by_cat[focusName];
+      var a=0,ly=0;if(cm){for(var m=num(selFrom);m<=num(selTo);m++){a+=num(cm.actual&&cm.actual[String(m)]||0);ly+=num(cm.ly&&cm.ly[String(m)]||0);}}
+      g={a:a,ly:ly,g:ly>0?(a-ly)/ly*100:(a>0?null:null)};
+    } else { g=chanGrowth(d); }
     rows.push({id:ch.id,label:(ch.id==="LOTUS'"?"Lotus's":(d.label||ch.label)),a:g.a,ly:g.ly,g:g.g});
     tot+=g.a;
   });
