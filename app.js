@@ -30,6 +30,7 @@ function selAll(){
     var mbc=c.monthly_by_cat||{},hbc=c.history_by_cat||{},abc=c.annual_by_cat||{};Object.keys(mbc).forEach(function(cat){out.monthly_by_cat[cat]=out.monthly_by_cat[cat]||{actual:{},ly:{}};var o=out.monthly_by_cat[cat],src=mbc[cat]||{};(src.actual||{}).forEach?null:null;for(var m=1;m<=12;m++){o.actual[String(m)]=num(o.actual[String(m)]||0)+num((src.actual||{})[String(m)]||0);o.ly[String(m)]=num(o.ly[String(m)]||0)+num((src.ly||{})[String(m)]||0);}});Object.keys(hbc).forEach(function(cat){out.history_by_cat[cat]=out.history_by_cat[cat]||{};var o=out.history_by_cat[cat],src=hbc[cat]||{};Object.keys(src).forEach(function(y){o[y]=o[y]||{};for(var m=1;m<=12;m++)o[y][String(m)]=num(o[y][String(m)]||0)+num((src[y]||{})[String(m)]||0);});});Object.keys(abc).forEach(function(cat){out.annual_by_cat[cat]=out.annual_by_cat[cat]||{};var o=out.annual_by_cat[cat],src=abc[cat]||{};Object.keys(src).forEach(function(y){o[y]=num(o[y]||0)+num(src[y]||0);});});
   });
   out.total_mb=0;for(var m=1;m<=12;m++)out.total_mb+=num(out.monthly[String(m)]||0);
+  var tsa=[],tsbc={};selChans.forEach(function(id){var cs=D[id];if(!cs)return;if(cs.top_sku_all)tsa=tsa.concat(cs.top_sku_all);var t=cs.top_sku_by_cat||{};Object.keys(t).forEach(function(cat){tsbc[cat]=(tsbc[cat]||[]).concat(t[cat]);});});out.top_sku_all=tsa;out.top_sku_by_cat=tsbc;
   return out;
 }
 function label(){if(selChans&&selChans.length>1)return selChans.map(function(i){return D[i]&&D[i].label||i;}).join(" + ");return D[cur]?D[cur].label:cur;}
@@ -68,7 +69,7 @@ function rangeSum(map,f,t){if(!map)return 0;var s=0;for(var m=f;m<=t;m++)s+=num(
 function hasS(ch){ return ch && ch.s_actual && ch.s_le && ch.s_ly && ch.s_aop; }
 function renderAll(){
   try{
-    var c=C();var __foc__=currentFocus(c);if(!__foc__){setV("tgM",label());setV("tgTbl",label());setV("tgCat",label());setV("tgSku",label());}
+    var c=C();var __foc__=currentFocus(c);var __fn=__foc__&&__foc__.name?(" "+String.fromCharCode(8226)+" "+__foc__.name):"";setV("tgY",label()+__fn);setV("tgM",label()+__fn);setV("tgTbl",label()+__fn);setV("tgCat",activeCat?("Category "+String.fromCharCode(8226)+" "+activeCat):"Category");setV("tgSku",label()+__fn);
     var ok=hasS(c);
     var rangeTxt=MONTHS[selFrom-1]+"-"+MONTHS[selTo-1];
     setV("lblAct",rangeTxt);setV("lblLE",rangeTxt);setV("lblLY",rangeTxt);setV("lblAOP",rangeTxt);
