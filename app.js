@@ -50,7 +50,7 @@ function renderAll(){
     if(!ok){
       // ช่องอื่น: มีแค่ monthly Actual (ไม่มี LE/LY/AOP)
       var a=rangeSum(c.s_actual||c.monthly,selFrom,selTo);
-      setT("kACT",fmt(a)+' <small>MB</small>');setT("kACTuntil",MONTHS[lastClosed-1]+" "+fy);
+      setT("kACT",fmt(a)+' <small>MB</small>');setT("kACTuntil",MONTHS[lastClosed-1]+" "+fy);setT("kACTdate",MONTHS[lastClosed-1]+" "+fy);
       setT("kLE","—");setT("kGap","—");
       setT("kLY","—");setT("kLYcmp","No LY data");
       setT("kAOP","—");setT("kAOPcmp","No AOP data");
@@ -59,13 +59,14 @@ function renderAll(){
       var le=0;for(var m=selFrom;m<=selTo;m++){ if(m<lastClosed) le+=num(c.s_actual[String(m)]); else le+=num(c.s_le[String(m)]); }
       var ly=rangeSum(c.s_ly,selFrom,selTo);
       var aop=rangeSum(c.s_aop,selFrom,selTo);
-      setT("kACT",fmt(a)+' <small>MB</small>');setT("kACTuntil",MONTHS[lastClosed-1]+" "+fy);
-      setT("kLE",fmt(le)+' <small>MB</small>');setT("kGap",fmt(Math.max(0,le-a))+" MB");
-      var lyVs=pct(ly,aop);
-      setT("kLY",fmt(ly)+' <small>MB</small>');setT("kLYcmp",lyVs==null?"No AOP data":"vs AOP "+lyVs.toFixed(1)+"%");
+      setT("kACT",fmt(a)+' <small>MB</small>');setT("kACTuntil",MONTHS[lastClosed-1]+" "+fy);setT("kACTdate",MONTHS[lastClosed-1]+" "+fy);
+            var leDiff=le-a,leP=a>0?(leDiff/a*100):0,leCls=leDiff>=0?"up":"down";
+      setT("kLE",fmt(le)+' <small>MB</small>');setT("kGap",Math.abs(leDiff).toFixed(1)+" MB ("+(leDiff>=0?"+":"")+leP.toFixed(1)+"%)");document.getElementById("kGap").className=leCls;
+      var lyDiff=a-ly,lyP=ly>0?(lyDiff/ly*100):0,lyCls=lyDiff>=0?"up":"down";
+      setT("kLY",fmt(ly)+' <small>MB</small>');setT("kLYgap",Math.abs(lyDiff).toFixed(1)+" MB");setT("kLYpc",(lyDiff>=0?"+":"")+lyP.toFixed(1)+"%");document.getElementById("kLYgap").className=lyCls;
       var vs= aop? (le/aop*100) : 0;
-      var leVs=pct(le,aop);
-      setT("kAOP",fmt(vs)+' <small>%</small>');setT("kAOPcmp",leVs==null?"No AOP data":"LE "+leVs.toFixed(1)+"% vs AOP");
+      var aopDiff=le-aop,aopP=aop>0?(aopDiff/aop*100):0,aopCls=aopDiff>=0?"up":"down";
+      setT("kAOP",fmt(vs)+' <small>%</small>');setT("kAOPgap",Math.abs(aopDiff).toFixed(1)+" MB");setT("kAOPpc",(aopDiff>=0?"+":"")+aopP.toFixed(1)+"%");document.getElementById("kAOPgap").className=aopCls;
     }
     setV("hDate",MONTHS[lastClosed-1]+" "+fy);
     drawAnnual();drawMonthly();drawTable();
