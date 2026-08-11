@@ -92,6 +92,7 @@ for c in mt:
 catm=defaultdict(float)
 for c in mt:
     for it in chan_data[c]["category"]["items"]: catm[it["name"]]+=it["mb"]
+print("DEBUG m:",dict(m))
 catitems=[{"name":c,"mb":round(v,2),"pct":round(v*1e6/tot*100,1) if tot else 0} for c,v in sorted(catm.items(),key=lambda x:-x[1])]
 # merge sku
 skum=defaultdict(lambda:[0.0,"",''])
@@ -101,7 +102,7 @@ for c in mt:
         if skum[mat][1]=="": skum[mat][1]=d; skum[mat][2]=cat
 sku_all=[{"name":d,"mb":round(v/1e6,2),"cat":c} for mat,(v,d,c) in skum.items()]
 sku_all.sort(key=lambda x:-x["mb"])
-chan_data["MT"]={"label":"MT (Makro+Lotus')","total_mb":round(tot/1e6,2),"monthly":{str(mm):round(m[mm]/1e6,2) for mm in range(1,13)},
+chan_data["MT"]={"label":"MT (Makro+Lotus')","total_mb":round(tot/1e6,2),"monthly":{str(mm):round(m[mm],2) for mm in range(1,13)},
   "category":{"total_mb":round(tot/1e6,2),"items":catitems},"top_sku_all":sku_all[:15],
   "top_sku_by_cat":{c:[s for s in sku_all if s["cat"]==c][:10] for c,_ in catm.items()}}
 # merge monthly category/SKU series for MT

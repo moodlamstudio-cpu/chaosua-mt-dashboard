@@ -68,7 +68,7 @@ function rangeSum(map,f,t){if(!map)return 0;var s=0;for(var m=f;m<=t;m++)s+=num(
 function hasS(ch){ return ch && ch.s_actual && ch.s_le && ch.s_ly && ch.s_aop; }
 function renderAll(){
   try{
-    var c=C();setV("tgM",label());setV("tgTbl",label());setV("tgCat",label());setV("tgSku",label());
+    var c=C();var __foc__=currentFocus(c);if(!__foc__){setV("tgM",label());setV("tgTbl",label());setV("tgCat",label());setV("tgSku",label());}
     var ok=hasS(c);
     var rangeTxt=MONTHS[selFrom-1]+"-"+MONTHS[selTo-1];
     setV("lblAct",rangeTxt);setV("lblLE",rangeTxt);setV("lblLY",rangeTxt);setV("lblAOP",rangeTxt);
