@@ -156,19 +156,25 @@ function drawChannelSummary(){
     if(ch.id==="MT")return;
     var d=D[ch.id];if(!d)return;
     var g=chanGrowth(d);
-    rows.push({id:ch.id,label:(d.label||ch.label),lg:CHLOGO[ch.id]||(d.label||ch.label),a:g.a,ly:g.ly,g:g.g});
+    rows.push({id:ch.id,label:(d.label||ch.label),a:g.a,ly:g.ly,g:g.g});
     tot+=g.a;
   });
   rows.sort(function(x,y){return y.a-x.a;});
-  var h='<table><thead><tr><th>Channel</th><th>YTD 2026 (MB)</th><th>Share %</th><th>LY 2025 (MB)</th><th>Growth %</th></tr></thead><tbody>';
+  var h='<div class="chgrid">';
   rows.forEach(function(r){
     var sh=tot?(r.a/tot*100):0;
     var grow=r.g;
     var cls=(grow!=null&&grow>=0)?"up":"down";
     var gtxt=(grow==null)?"\u2014":((grow>=0?"+":"")+grow.toFixed(1)+"%");
-    h+='<tr><td style="text-align:left"><span class="chlogo">'+r.lg+'</span></td><td>'+fmt(r.a)+'</td><td>'+sh.toFixed(1)+'%</td><td>'+fmt(r.ly)+'</td><td class="'+cls+'">'+gtxt+'</td></tr>';
+    var lg="logos/"+r.id+".png";
+    h+='<div class="chcard">';
+    h+='  <div class="chhead"><img class="chimg" src="'+lg+'" alt="'+r.label+'" onerror="this.style.display=\'none\';this.nextElementSibling.style.display=\'inline\'"><span class="chfallback" style="display:none">'+r.label.charAt(0)+'</span><span class="chname">'+r.label+'</span></div>';
+    h+='  <div class="chcon">'+sh.toFixed(1)+'%<small>Con</small></div>';
+    h+='  <div class="chval">'+fmt(r.a)+'<small>MB</small></div>';
+    h+='  <div class="chly">LY '+fmt(r.ly)+' <span class="'+cls+'">'+gtxt+'</span></div>';
+    h+='</div>';
   });
-  h+='</tbody></table>';
+  h+='</div>';
   el.innerHTML=h;
 }
 load();

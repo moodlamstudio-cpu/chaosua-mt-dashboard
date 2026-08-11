@@ -42,6 +42,17 @@
   tr.total td{font-weight:800;border-top:2px solid #cbd5e1;background:#f8fafc;}
   .chlogo{display:inline-block;background:#f1f5f9;border:1px solid var(--border);border-radius:5px;padding:3px 8px;font-size:11px;font-weight:700;color:var(--txt);vertical-align:middle;white-space:nowrap;}
   #chTable td,#chTable th{vertical-align:middle;}
+
+  .chgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(185px,1fr));gap:14px;}
+  @media(min-width:1100px){.chgrid{grid-template-columns:repeat(5,1fr);}}
+  .chcard{background:#fff;border:1px solid var(--border);border-radius:12px;padding:14px;text-align:center;}
+  .chhead{display:flex;align-items:center;justify-content:center;gap:8px;margin-bottom:8px;min-height:28px;}
+  .chimg{height:24px;width:auto;object-fit:contain;}
+  .chfallback{display:inline-block;width:22px;height:22px;border-radius:5px;background:#f1f5f9;border:1px solid var(--border);line-height:22px;font-size:12px;font-weight:700;color:var(--muted);}
+  .chname{font-size:12px;font-weight:700;color:var(--txt);}
+  .chval{font-size:26px;font-weight:800;} .chval small{font-size:11px;color:var(--muted);font-weight:600;}
+  .chcon{font-size:22px;font-weight:800;color:#2563eb;margin:2px 0 4px;} .chcon small{font-size:11px;color:var(--muted);font-weight:600;}
+  .chly{font-size:11px;color:var(--muted);}
 </style></head>
 <body>
 <header>
