@@ -51,7 +51,7 @@ function renderAll(){
     if(!ok){
       // ช่องอื่น: มีแค่ monthly Actual (ไม่มี LE/LY/AOP)
       var a=rangeSum(c.s_actual||c.monthly,selFrom,selTo);
-      setT("kACT",fmt(a)+' <small>MB</small>');setT("kACTuntil",MONTHS[lastClosed-1]+" "+fy);setT("kACTdate","10 Aug 2026");
+      setT("kACT",fmt(a)+' <small>MB</small>');setT("kACTuntil",MONTHS[lastClosed-1]+" "+fy);setT("kACTdate","12 Aug 2026");
       setT("kLE","—");setT("kGap","—");
       setT("kLY","—");setT("kLYcmp","No LY data");
       setT("kAOP","—");setT("kAOPcmp","No AOP data");
@@ -60,7 +60,7 @@ function renderAll(){
       var le=0;for(var m=selFrom;m<=selTo;m++){ if(m<lastClosed) le+=num(c.s_actual[String(m)]); else le+=num(c.s_le[String(m)]); }
       var ly=rangeSum(c.s_ly,selFrom,selTo);
       var aop=rangeSum(c.s_aop,selFrom,selTo);
-      setT("kACT",fmt(a)+' <small>MB</small>');setT("kACTuntil",MONTHS[lastClosed-1]+" "+fy);setT("kACTdate","10 Aug 2026");
+      setT("kACT",fmt(a)+' <small>MB</small>');setT("kACTuntil",MONTHS[lastClosed-1]+" "+fy);setT("kACTdate","12 Aug 2026");
             var leDiff=a-le,leP=le>0?(leDiff/le*100):0,leCls=leDiff>=0?"up":"down";
       setT("kLE",fmt(le)+' <small>MB</small>');setT("kGap",(leDiff>=0?"+":"-")+Math.abs(leDiff).toFixed(1)+" MB ("+(leDiff>=0?"+":"-")+Math.abs(leP).toFixed(1)+"%)");document.getElementById("kGap").className=leCls;
       var lyDiff=a-ly,lyP=ly>0?(lyDiff/ly*100):0,lyCls=lyDiff>=0?"up":"down";
