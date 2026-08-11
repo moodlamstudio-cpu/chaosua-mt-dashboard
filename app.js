@@ -24,6 +24,7 @@ function selAll(){
       if(c.s_ly)out.s_ly[String(m)]=num(out.s_ly[String(m)])+num(c.s_ly[String(m)]||0);
       if(c.s_aop)out.s_aop[String(m)]=num(out.s_aop[String(m)])+num(c.s_aop[String(m)]||0);}
     ["2025","2026"].forEach(function(y){out.history[y]=out.history[y]||{};var h=c.history&&c.history[y]||{};for(var m=1;m<=12;m++)out.history[y][String(m)]=num(out.history[y][String(m)])+num(h[String(m)]||0);});
+    var an=c.annual||{};Object.keys(an).forEach(function(y){out.annual[y]=num(out.annual[y]||0)+num(an[y]);});
     var ci=c.category&&c.category.items||[];ci.forEach(function(it){var ex=null;for(var k=0;k<out.category.items.length;k++)if(out.category.items[k].name===it.name){ex=out.category.items[k];break;}if(ex)ex.mb=ex.mb+it.mb;else out.category.items.push({name:it.name,mb:it.mb,pct:it.pct});});
   });
   out.total_mb=0;for(var m=1;m<=12;m++)out.total_mb+=num(out.monthly[String(m)]||0);
@@ -194,7 +195,7 @@ function drawChannelSummary(){
     var lg="logos/"+r.id+".png";
         var bg=grow!=null?(grow>=0?"#dcfce7":"#fee2e2"):"#fff";
     var bstyle=bg!=="#fff"?" style=\"background:"+bg+"\"":"";
-    h+='<div class="chcard" data-ch="'+r.id+'"'+bstyle+' style="cursor:pointer" onclick="selectChan(\''+r.id+'\')">';
+    h+='<div class="chcard" data-ch="'+r.id+'"'+bstyle+' style="cursor:pointer">';
     h+='  <div class="chhead"><span class="chname">'+r.label+'</span></div>';
     h+='  <div class="chcon">'+sh.toFixed(1)+'%<small>Con</small></div>';
     h+='  <div class="chval">'+fmt(r.a)+'<small>MB</small></div>';
@@ -203,5 +204,6 @@ function drawChannelSummary(){
   });
   h+='</div>';
   el.innerHTML=h;
+  Array.prototype.forEach.call(document.querySelectorAll(".chcard[data-ch]"),function(el2){el2.addEventListener("click",function(){selectChan(el2.getAttribute("data-ch"));});});
 }
 load();
