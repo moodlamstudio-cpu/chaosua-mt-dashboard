@@ -146,7 +146,7 @@ function drawTable(){var c=C(),focusInfo=currentFocus(c),focus=focusInfo&&focusI
  var ptvly=(ty>0)?(tvly/ty*100):null,ptvaop=(ta2>0)?(tvaop/ta2*100):null;
  h+='<tr class="total"><td>Total</td><td>'+fmt(ta)+'</td><td>'+(isTotal?fmt(tl):'—')+'</td><td>'+(isTotal?fmt(ty):'—')+'</td><td>'+(isTotal?fmt(ta2):'—')+'</td>'+cmpDoubleCell("Total VS LY",tvly,ptvly)+cmpDoubleCell("Total VS AOP",tvaop,ptvaop)+'</tr></tbody>';
  setT("mTable",h);}
-function drawCategory(c){var el=document.getElementById("cCat");if(!el||!Chart)return;destroy("cCat");
+function drawCategory(c){var el=document.getElementById("cCat");if(!el||!Chart)return;destroy("cCat");var cT=document.getElementById("tgCat");if(cT)cT.textContent=(activeCat?("Category \u2022 "+activeCat):"Category");
  var C2=(c.category&&c.category.items)?c.category.items:[];if(!C2.length){setT("catLegend","No data");return;}
  var tot=c.total_mb;var aFind=null;for(var ai=0;ai<C2.length;ai++)if(C2[ai].name===activeCat){aFind=C2[ai].mb;break;}if(activeCat&&aFind!=null)tot=aFind;var vals=C2.map(function(x){return x.mb;});var colors=C2.map(function(x,i){return (activeCat===x.name)?dark(CATCOLR[i%CATCOLR.length]):CATCOLR[i%CATCOLR.length];});
  var _sd=C2.map(function(x){return {pct:x.pct||0};});
