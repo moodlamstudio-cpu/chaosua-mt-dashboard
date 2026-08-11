@@ -1,4 +1,4 @@
-const MONTHS=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+﻿const MONTHS=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
 let D=null,charts={},cur="MT",selChans=["MAKRO","LOTUS'"],selFrom=1,selTo=8,lastClosed=8,fy=2026;
 function num(v){return (v==null||isNaN(v))?0:Number(v);}
 function fmt(v){return (v==null||isNaN(v))?"-":Number(v).toLocaleString("en-US",{minimumFractionDigits:1,maximumFractionDigits:1});}
@@ -26,7 +26,7 @@ function selAll(){
     ["2025","2026"].forEach(function(y){out.history[y]=out.history[y]||{};var h=c.history&&c.history[y]||{};for(var m=1;m<=12;m++)out.history[y][String(m)]=num(out.history[y][String(m)])+num(h[String(m)]||0);});
     var an=c.annual||{};Object.keys(an).forEach(function(y){out.annual[y]=num(out.annual[y]||0)+num(an[y]);});
     var ci=c.category&&c.category.items||[];ci.forEach(function(it){var ex=null;for(var k=0;k<out.category.items.length;k++)if(out.category.items[k].name===it.name){ex=out.category.items[k];break;}if(ex)ex.mb=ex.mb+it.mb;else out.category.items.push({name:it.name,mb:it.mb,pct:it.pct});});
-    // รวม by_cat (สำหรับ currentFocus คลิกแคท)
+    // เธฃเธงเธก by_cat (เธชเธณเธซเธฃเธฑเธ currentFocus เธเธฅเธดเธเนเธเธ—)
     var mbc=c.monthly_by_cat||{},hbc=c.history_by_cat||{},abc=c.annual_by_cat||{};Object.keys(mbc).forEach(function(cat){out.monthly_by_cat[cat]=out.monthly_by_cat[cat]||{actual:{},ly:{}};var o=out.monthly_by_cat[cat],src=mbc[cat]||{};(src.actual||{}).forEach?null:null;for(var m=1;m<=12;m++){o.actual[String(m)]=num(o.actual[String(m)]||0)+num((src.actual||{})[String(m)]||0);o.ly[String(m)]=num(o.ly[String(m)]||0)+num((src.ly||{})[String(m)]||0);}});Object.keys(hbc).forEach(function(cat){out.history_by_cat[cat]=out.history_by_cat[cat]||{};var o=out.history_by_cat[cat],src=hbc[cat]||{};Object.keys(src).forEach(function(y){o[y]=o[y]||{};for(var m=1;m<=12;m++)o[y][String(m)]=num(o[y][String(m)]||0)+num((src[y]||{})[String(m)]||0);});});Object.keys(abc).forEach(function(cat){out.annual_by_cat[cat]=out.annual_by_cat[cat]||{};var o=out.annual_by_cat[cat],src=abc[cat]||{};Object.keys(src).forEach(function(y){o[y]=num(o[y]||0)+num(src[y]||0);});});
   });
   out.total_mb=0;for(var m=1;m<=12;m++)out.total_mb+=num(out.monthly[String(m)]||0);
@@ -74,20 +74,20 @@ function renderAll(){
     var rangeTxt=MONTHS[selFrom-1]+"-"+MONTHS[selTo-1];
     setV("lblAct",rangeTxt);setV("lblLE",rangeTxt);setV("lblLY",rangeTxt);setV("lblAOP",rangeTxt);
     if(!ok){
-      // ช่องอื่น: มีแค่ monthly Actual (ไม่มี LE/LY/AOP)
+      // เธเนเธญเธเธญเธทเนเธ: เธกเธตเนเธเน monthly Actual (เนเธกเนเธกเธต LE/LY/AOP)
       var a=rangeSum(c.s_actual||c.monthly,selFrom,selTo);
       setT("kACT",fmt(a)+' <small>MB</small>');setT("kACTuntil",MONTHS[lastClosed-1]+" "+fy);setT("kACTdate","12 Aug 2026");
-      setT("kLE","—");setT("kGap","—");
-      setT("kLY","—");setT("kLYcmp","No LY data");
-      setT("kAOP","—");setT("kAOPcmp","No AOP data");
+      setT("kLE","โ€”");setT("kGap","โ€”");
+      setT("kLY","โ€”");setT("kLYcmp","No LY data");
+      setT("kAOP","โ€”");setT("kAOPcmp","No AOP data");
     } else {
       var focKPI=currentFocus(c),focusNameKPI=focKPI&&focKPI.name;
       var a=0,leK=0,lyK=0,aopK=0;
-      if(focusNameKPI){ // โหมดสินค้า: KPI = ยอดสินค้านั้น (จาก series.actual/ly)
+      if(focusNameKPI){ // เนเธซเธกเธ”เธชเธดเธเธเนเธฒ: KPI = เธขเธญเธ”เธชเธดเธเธเนเธฒเธเธฑเนเธ (เธเธฒเธ series.actual/ly)
         var sr=focKPI.series;for(var mm=selFrom;mm<=selTo;mm++){a+=num(sr.actual&&sr.actual[String(mm)]||0);lyK+=num(sr.ly&&sr.ly[String(mm)]||0);}
       } else { a=rangeSum(c.s_actual,selFrom,selTo);leK=0;for(var mm2=selFrom;mm2<=selTo;mm2++){if(mm2<lastClosed)leK+=num(c.s_actual[String(mm2)]);else leK+=num(c.s_le[String(mm2)]);}lyK=rangeSum(c.s_ly,selFrom,selTo);aopK=rangeSum(c.s_aop,selFrom,selTo);}
       setT("kACT",fmt(a)+' <small>MB</small>');setT("kACTuntil",MONTHS[lastClosed-1]+" "+fy);setT("kACTdate","12 Aug 2026");
-      if(focusNameKPI){ setT("kLE","—");setT("kGap","—");setT("kLY",lyK>0?fmt(lyK)+' <small>MB</small>':"—");setT("kLYgap","");setT("kAOP","—");setT("kAOPgap","");return; }
+      if(focusNameKPI){ setT("kLE","\u2014");setT("kGap","\u2014");setT("kLY",lyK>0?fmt(lyK)+' <small>MB</small>':"\u2014");setT("kLYgap","");setT("kAOP","\u2014");setT("kAOPgap",""); }
       var le=leK,ly=lyK,aop=aopK;
       var le=0;for(var m=selFrom;m<=selTo;m++){ if(m<lastClosed) le+=num(c.s_actual[String(m)]); else le+=num(c.s_le[String(m)]); }
       var ly=rangeSum(c.s_ly,selFrom,selTo);
@@ -111,15 +111,15 @@ function chgBg(m,sel){return m===sel?"#e11d48":"#f87171";}
 function sv(c,key,m){ if(c&&c[key]) return num(c[key][String(m)]); if(c&&c.monthly) return num(c.monthly[String(m)]); return 0; }
 function currentFocus(c){if(activeSku&&c.monthly_by_sku&&c.monthly_by_sku[activeSku])return {name:activeSku,series:c.monthly_by_sku[activeSku],annual:c.annual_by_sku&&c.annual_by_sku[activeSku],history:c.history_by_sku&&c.history_by_sku[activeSku]};if(activeCat&&c.monthly_by_cat&&c.monthly_by_cat[activeCat])return {name:activeCat,series:c.monthly_by_cat[activeCat],annual:c.annual_by_cat&&c.annual_by_cat[activeCat],history:c.history_by_cat&&c.history_by_cat[activeCat]};return null;}
 function pickKpi(type,value){if(type==="year"){if(kpiPick&&kpiPick.type==="month")kpiPick={type:"yearMonth",year:String(value),month:+kpiPick.value};else if(kpiPick&&kpiPick.type==="yearMonth")kpiPick=(String(kpiPick.year)===String(value))?{type:"month",value:kpiPick.month}:{type:"yearMonth",year:String(value),month:kpiPick.month};else{kpiPick=(kpiPick&&kpiPick.type==="year"&&String(kpiPick.value)===String(value))?null:{type:"year",value:String(value)};}}else{if(kpiPick&&kpiPick.type==="year")kpiPick={type:"yearMonth",year:String(kpiPick.value),month:+value};else if(kpiPick&&kpiPick.type==="yearMonth")kpiPick=(+kpiPick.month===+value)?{type:"year",value:String(kpiPick.year)}:{type:"yearMonth",year:String(kpiPick.year),month:+value};else kpiPick=(kpiPick&&kpiPick.type==="month"&&+kpiPick.value===+value)?null:{type:"month",value:+value};}setTimeout(renderAll,0);}
-function applyKpiPick(){var c=C(),focus=currentFocus(c);if(kpiPick.type==="year"){var y=String(kpiPick.value),annual=(focus&&focus.annual)||c.annual||{},prev=String(+y-1);setV("lblAct",y);setT("kACT",fmt(annual[y])+' <small>MB</small>');setT("kACTuntil","Full year / YTD");setV("lblLE",y);setT("kLE","—");setT("kGap","—");setV("lblLY",prev);setT("kLY",annual[prev]!=null?fmt(annual[prev])+' <small>MB</small>':"—");setT("kLYcmp","Previous year");setV("lblAOP",y);setT("kAOP","—");setT("kAOPcmp","No annual AOP");return;}
+function applyKpiPick(){var c=C(),focus=currentFocus(c);if(kpiPick.type==="year"){var y=String(kpiPick.value),annual=(focus&&focus.annual)||c.annual||{},prev=String(+y-1);setV("lblAct",y);setT("kACT",fmt(annual[y])+' <small>MB</small>');setT("kACTuntil","Full year / YTD");setV("lblLE",y);setT("kLE","โ€”");setT("kGap","โ€”");setV("lblLY",prev);setT("kLY",annual[prev]!=null?fmt(annual[prev])+' <small>MB</small>':"โ€”");setT("kLYcmp","Previous year");setV("lblAOP",y);setT("kAOP","โ€”");setT("kAOPcmp","No annual AOP");return;}
  var m=kpiPick.type==="yearMonth"?+kpiPick.month:+kpiPick.value,y=kpiPick.type==="yearMonth"?+kpiPick.year:fy,history=(focus&&focus.history)||c.history||{},actual=num(history[String(y)]&&history[String(y)][String(m)]),ly=history[String(y-1)]?num(history[String(y-1)][String(m)]):null,current=(y===fy),le=(!focus&&current&&hasS(c))?(m<lastClosed?actual:sv(c,"s_le",m)):null,aop=(!focus&&current&&hasS(c))?sv(c,"s_aop",m):null;["lblAct","lblLE","lblLY","lblAOP"].forEach(function(id){setV(id,MONTHS[m-1]+" "+y);});setT("kACT",fmt(actual)+' <small>MB</small>');setT("kACTuntil",MONTHS[m-1]+" "+y);setT("kLE",le==null?"\u2014":fmt(le)+' <small>MB</small>');setT("kGap",le==null?"\u2014":fmt(Math.max(0,le-actual))+" MB");setT("kLY",ly==null?"\u2014":fmt(ly)+' <small>MB</small>');setT("kLYcmp",ly==null?"No LY data":"Monthly LY "+(y-1));setT("kAOP",aop?fmt(le/aop*100)+' <small>%</small>':"\u2014");setT("kAOPcmp",aop?"Monthly LE vs AOP":"No AOP data");}
 
-function drawAnnual(){destroy("cAnnual");var c=C(),focus=currentFocus(c),annual=(focus&&focus.annual)||c.annual||{},history=(focus&&focus.history)||c.history||{},years=Object.keys(annual).sort(),month=kpiPick&&(kpiPick.type==="month"?+kpiPick.value:(kpiPick.type==="yearMonth"?+kpiPick.month:null)),vals=years.map(function(y){return month?num(history[y]&&history[y][String(month)]):num(annual[y]);}),selectedYear=kpiPick&&(kpiPick.type==="year"?String(kpiPick.value):(kpiPick.type==="yearMonth"?String(kpiPick.year):null)),colors=years.map(function(y){return selectedYear===y?"#be123c":"#f9a8d4";}),base=focus?(label()+" • "+focus.name):label();setV("tgY",base+(month?" • "+MONTHS[month-1]:""));charts["cAnnual"]=new Chart(document.getElementById("cAnnual"),{type:"bar",data:{labels:years,datasets:[{label:"Actual",data:vals,backgroundColor:colors,borderRadius:6,barPercentage:.55}]},
+function drawAnnual(){destroy("cAnnual");var c=C(),focus=currentFocus(c),annual=(focus&&focus.annual)||c.annual||{},history=(focus&&focus.history)||c.history||{},years=Object.keys(annual).sort(),month=kpiPick&&(kpiPick.type==="month"?+kpiPick.value:(kpiPick.type==="yearMonth"?+kpiPick.month:null)),vals=years.map(function(y){return month?num(history[y]&&history[y][String(month)]):num(annual[y]);}),selectedYear=kpiPick&&(kpiPick.type==="year"?String(kpiPick.value):(kpiPick.type==="yearMonth"?String(kpiPick.year):null)),colors=years.map(function(y){return selectedYear===y?"#be123c":"#f9a8d4";}),base=focus?(label()+" โ€ข "+focus.name):label();setV("tgY",base+(month?" โ€ข "+MONTHS[month-1]:""));charts["cAnnual"]=new Chart(document.getElementById("cAnnual"),{type:"bar",data:{labels:years,datasets:[{label:"Actual",data:vals,backgroundColor:colors,borderRadius:6,barPercentage:.55}]},
   plugins:[valueLabelPlugin],options:{responsive:true,maintainAspectRatio:false,onClick:function(e,els){if(els&&els.length)pickKpi("year",years[els[0].index]);},plugins:{legend:{display:false},tooltip:{callbacks:{label:function(x){return (month?MONTHS[month-1]:"Actual")+": "+fmt(x.parsed.y)+" MB";}}}},scales:{y:{beginAtZero:true,grace:"15%"},x:{grid:{display:false}}}}});}
 
 function drawMonthly(){destroy("cMonthly");var c=C();var lb=[],act=[],le=[],ly=[],aop=[];
  var focusInfo=currentFocus(c),focus=focusInfo&&focusInfo.series,focusName=focusInfo&&focusInfo.name||"",viewYear=kpiPick&&(kpiPick.type==="year"?+kpiPick.value:(kpiPick.type==="yearMonth"?+kpiPick.year:fy))||fy,history=(focusInfo&&focusInfo.history)||c.history||{},historical=(viewYear!==fy),seriesOk=hasS(c)&&!focus&&!historical;
- setV("tgM",(focusName?(label()+" • "+focusName):label())+(historical?" • "+viewYear:""));
+ setV("tgM",(focusName?(label()+" โ€ข "+focusName):label())+(historical?" โ€ข "+viewYear:""));
  ["lgLE","lgAOP"].forEach(function(id){var e=document.getElementById(id);if(e)e.style.display=(focus||historical)?"none":"inline-flex";});
  var actualSeries=historical?(history[String(viewYear)]||{}):(focus?focus.actual:null),lySeries=historical?(history[String(viewYear-1)]||{}):(focus?focus.ly:null),maxMonth=historical?12:lastClosed,latestVisible=Math.min(selTo,maxMonth);
  for(var i=1;i<=12;i++){var m=i;lb.push((m>=selFrom&&m<=selTo)?MONTHS[m-1]:"");act.push((m<=maxMonth&&m>=selFrom&&m<=selTo)?((focus||historical)?num(actualSeries[String(m)]):sv(c,"s_actual",m)):null);le.push((seriesOk&&m>=lastClosed&&m>=selFrom&&m<=selTo)?sv(c,"s_le",m):null);ly.push(((seriesOk||focus||historical)&&m>=selFrom&&m<=selTo)?((focus||historical)?num(lySeries[String(m)]):sv(c,"s_ly",m)):null);aop.push((seriesOk&&m>=selFrom&&m<=selTo)?sv(c,"s_aop",m):null);}
@@ -143,9 +143,9 @@ function drawTable(){var c=C(),focusInfo=currentFocus(c),focus=focusInfo&&focusI
   else{act=(m<=lastClosed)?sv(c,"s_actual",m):null;le=seriesOk?((m<lastClosed)?act:sv(c,"s_le",m)):null;ly=seriesOk?sv(c,"s_ly",m):null;aop=seriesOk?sv(c,"s_aop",m):null;}
   var vly=(act!=null&&ly!=null)?(act-ly):null,ply=(vly!=null&&ly>0)?(vly/ly*100):null,vaop=(act!=null&&aop!=null)?(act-aop):null,paop=(vaop!=null&&aop>0)?(vaop/aop*100):null;
   ta+=act||0;if(isTotal){tl+=le||0;ty+=ly||0;ta2+=aop||0;}tvly+=vly||0;tvaop+=vaop||0;
-  h+="<tr><td>"+MONTHS[m-1]+"</td><td>"+(act==null?"—":fmt(act))+"</td><td>"+(le==null?"—":fmt(le))+"</td><td>"+(ly==null?"—":fmt(ly))+"</td><td>"+(aop==null?"—":fmt(aop))+"</td>"+cmpDoubleCell("VS LY",vly,ply)+cmpDoubleCell("VS AOP",vaop,paop)+"</tr>";}
+  h+="<tr><td>"+MONTHS[m-1]+"</td><td>"+(act==null?"โ€”":fmt(act))+"</td><td>"+(le==null?"โ€”":fmt(le))+"</td><td>"+(ly==null?"โ€”":fmt(ly))+"</td><td>"+(aop==null?"โ€”":fmt(aop))+"</td>"+cmpDoubleCell("VS LY",vly,ply)+cmpDoubleCell("VS AOP",vaop,paop)+"</tr>";}
  var ptvly=(ty>0)?(tvly/ty*100):null,ptvaop=(ta2>0)?(tvaop/ta2*100):null;
- h+='<tr class="total"><td>Total</td><td>'+fmt(ta)+'</td><td>'+(isTotal?fmt(tl):'—')+'</td><td>'+(isTotal?fmt(ty):'—')+'</td><td>'+(isTotal?fmt(ta2):'—')+'</td>'+cmpDoubleCell("Total VS LY",tvly,ptvly)+cmpDoubleCell("Total VS AOP",tvaop,ptvaop)+'</tr></tbody>';
+ h+='<tr class="total"><td>Total</td><td>'+fmt(ta)+'</td><td>'+(isTotal?fmt(tl):'โ€”')+'</td><td>'+(isTotal?fmt(ty):'โ€”')+'</td><td>'+(isTotal?fmt(ta2):'โ€”')+'</td>'+cmpDoubleCell("Total VS LY",tvly,ptvly)+cmpDoubleCell("Total VS AOP",tvaop,ptvaop)+'</tr></tbody>';
  setT("mTable",h);}
 function drawCategory(c){var el=document.getElementById("cCat");if(!el||!Chart)return;destroy("cCat");var cT=document.getElementById("tgCat");if(cT)cT.textContent=(activeCat?("Category \u2022 "+activeCat):"Category");
  var C2=(c.category&&c.category.items)?c.category.items:[];if(!C2.length){setT("catLegend","No data");return;}
@@ -154,7 +154,7 @@ function drawCategory(c){var el=document.getElementById("cCat");if(!el||!Chart)r
  charts["cCat"]=new Chart(el,{type:"doughnut",data:{labels:C2.map(function(x){return x.name;}),datasets:[{data:vals,backgroundColor:colors,borderWidth:1,borderColor:"#fff",_sd:_sd}]},plugins:[piePlugin],
   options:{responsive:true,maintainAspectRatio:false,cutout:"60%",onClick:function(ev,els){if(els&&els.length){var idx=els[0].index;if(C2[idx])toggleCat(C2[idx].name);}},
    plugins:{title:{display:false},pieText:{label:fmt(tot)+' MB',sub:""},legend:{display:false},tooltip:{callbacks:{label:function(x){var it=C2[x.dataIndex];return it.name+": "+fmt(it.mb)+" MB ("+it.pct+"%)";}}}}}});
- var lg="";C2.forEach(function(x,i){var bg=(activeCat===x.name)?"background:#fef9c3;":"";lg+='<div class="catrow" data-cat="'+x.name+'" style="'+bg+'display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid #f1f5f9;cursor:pointer;border-left:4px solid '+CATCOLR[i%CATCOLR.length]+';padding-left:8px"><span>'+x.name+'</span><b>'+fmt(x.mb)+' MB · '+x.pct+'%</b></div>';});
+ var lg="";C2.forEach(function(x,i){var bg=(activeCat===x.name)?"background:#fef9c3;":"";lg+='<div class="catrow" data-cat="'+x.name+'" style="'+bg+'display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid #f1f5f9;cursor:pointer;border-left:4px solid '+CATCOLR[i%CATCOLR.length]+';padding-left:8px"><span>'+x.name+'</span><b>'+fmt(x.mb)+' MB ยท '+x.pct+'%</b></div>';});
  setT("catLegend",lg);
  var rows=document.querySelectorAll(".catrow");for(var i=0;i<rows.length;i++){(function(r){r.onclick=function(){toggleCat(r.dataset.cat);};})(rows[i]);}}
 function toggleCat(cat){activeCat=(activeCat===cat)?null:cat;activeSku=null;kpiPick=null;renderAll();}
@@ -162,13 +162,13 @@ function toggleSku(name,cat){activeSku=(activeSku===name)?null:name;if(cat)activ
 function drawSku(c){var tot=c.total_mb||0;var list;
  if(activeCat){list=(c.top_sku_by_cat&&c.top_sku_by_cat[activeCat])?c.top_sku_by_cat[activeCat]:[];}
  else{list=c.top_sku_all||[];}
- if(!list.length){setT("skuTable",'<thead><tr><th>SKU</th><th>MB</th></tr></thead><tbody><tr><td>No SKU</td><td>—</td></tr></tbody>');return;}
+ if(!list.length){setT("skuTable",'<thead><tr><th>SKU</th><th>MB</th></tr></thead><tbody><tr><td>No SKU</td><td>โ€”</td></tr></tbody>');return;}
  var h='<thead><tr><th>#</th><th style="text-align:left">SKU</th><th>Category</th><th style="text-align:right">MB</th><th style="text-align:right">%</th></tr></thead><tbody>';
  var shown=list.slice(0,10);shown.forEach(function(s,i){var cat=s.cat||activeCat||"";var p=tot?(s.mb/tot*100):0;var bg=activeSku===s.name?'background:#fef3c7;':'';h+='<tr class="skuro" data-i="'+i+'" style="cursor:pointer;'+bg+'"><td>'+(i+1)+'</td><td style="max-width:220px;white-space:normal;text-align:left">'+s.name+'</td><td>'+cat+'</td><td style="text-align:right">'+fmt(s.mb)+'</td><td style="text-align:right">'+p.toFixed(1)+'%</td></tr>';});
  h+='</tbody>';setT("skuTable",h);
  var rows=document.querySelectorAll(".skuro");for(var i=0;i<rows.length;i++){(function(r){r.onclick=function(){var s=shown[+r.dataset.i];if(s)toggleSku(s.name,s.cat||activeCat||"");};})(rows[i]);}}
 function chGrowthYTD(d,x){
-  // LY ผ่าน history ชุดปี 2025 (YTD ถึง lastClosed) เทียบ total_mb ของปีนี้
+  // LY เธเนเธฒเธ history เธเธธเธ”เธเธต 2025 (YTD เธ–เธถเธ lastClosed) เน€เธ—เธตเธขเธ total_mb เธเธญเธเธเธตเธเธตเน
   var ly=0,h=(d&&d.history&&d.history[x]);if(h){for(var m=1;m<=lastClosed;m++)ly+=num(h[String(m)]);}
   var a=num(d&&d.total_mb);
   var g=(ly>0)?((a-ly)/ly*100):null;
@@ -206,7 +206,7 @@ function drawChannelSummary(){
     if(ch.id==="MT")return;
     var d=D[ch.id];if(!d)return;
     var g;
-    if(focusName){ // โหมดสินค้าโฟกัส: ยอดสินค้านั้นต่อห้าง
+    if(focusName){ // เนเธซเธกเธ”เธชเธดเธเธเนเธฒเนเธเธเธฑเธช: เธขเธญเธ”เธชเธดเธเธเนเธฒเธเธฑเนเธเธ•เนเธญเธซเนเธฒเธ
       var cm=D[ch.id].monthly_by_cat&&D[ch.id].monthly_by_cat[focusName];
       var a=0,ly=0;if(cm){for(var m=num(selFrom);m<=num(selTo);m++){a+=num(cm.actual&&cm.actual[String(m)]||0);ly+=num(cm.ly&&cm.ly[String(m)]||0);}}
       g={a:a,ly:ly,g:ly>0?(a-ly)/ly*100:(a>0?null:null)};
