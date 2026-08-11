@@ -80,7 +80,14 @@ function renderAll(){
       setT("kLY","—");setT("kLYcmp","No LY data");
       setT("kAOP","—");setT("kAOPcmp","No AOP data");
     } else {
-      var a=rangeSum(c.s_actual,selFrom,selTo);
+      var focKPI=currentFocus(c),focusNameKPI=focKPI&&focKPI.name;
+      var a=0,leK=0,lyK=0,aopK=0;
+      if(focusNameKPI){ // โหมดสินค้า: KPI = ยอดสินค้านั้น (จาก series.actual/ly)
+        var sr=focKPI.series;for(var mm=selFrom;mm<=selTo;mm++){a+=num(sr.actual&&sr.actual[String(mm)]||0);lyK+=num(sr.ly&&sr.ly[String(mm)]||0);}
+      } else { a=rangeSum(c.s_actual,selFrom,selTo);leK=0;for(var mm2=selFrom;mm2<=selTo;mm2++){if(mm2<lastClosed)leK+=num(c.s_actual[String(mm2)]);else leK+=num(c.s_le[String(mm2)]);}lyK=rangeSum(c.s_ly,selFrom,selTo);aopK=rangeSum(c.s_aop,selFrom,selTo);}
+      setT("kACT",fmt(a)+' <small>MB</small>');setT("kACTuntil",MONTHS[lastClosed-1]+" "+fy);setT("kACTdate","12 Aug 2026");
+      if(focusNameKPI){ setT("kLE","—");setT("kGap","—");setT("kLY",lyK>0?fmt(lyK)+' <small>MB</small>':"—");setT("kLYgap","");setT("kAOP","—");setT("kAOPgap","");return; }
+      var le=leK,ly=lyK,aop=aopK;
       var le=0;for(var m=selFrom;m<=selTo;m++){ if(m<lastClosed) le+=num(c.s_actual[String(m)]); else le+=num(c.s_le[String(m)]); }
       var ly=rangeSum(c.s_ly,selFrom,selTo);
       var aop=rangeSum(c.s_aop,selFrom,selTo);
