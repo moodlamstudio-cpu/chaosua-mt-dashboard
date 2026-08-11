@@ -144,8 +144,11 @@ function chGrowthYTD(d,x){
 }
 var CHLOGO={'7Eleven':'7-Eleven','MAKRO':'MAKRO',"LOTUS'":"LOTUS'",'BigC':'Big C','Tops':'Tops','CJ Express':'CJ','Jiffy':'Jiffy','Foodland':'Foodland','FamilyMart':'FamilyMart','Golden Place':'GP','Central food wholesales':'CF','Maxmart':'Maxmart','MaxValue':'MaxValue','Villa market':'Villa','Lawson':'Lawson'};
 function chanGrowth(d){
-  var ly=0,h=(d&&d.history&&d.history["2025"]);if(h){for(var m=1;m<=lastClosed;m++)ly+=num(h[String(m)]);}
-  var a=num(d&&d.total_mb);
+  var f=num(selFrom),t=num(selTo);
+  var str=String(fy-1);
+  var ly=0,h=(d&&d.history&&d.history[str]);if(h){for(var m=f;m<=t;m++)ly+=num(h[String(m)]);}
+  var a=0,hc=(d&&d.history&&d.history[String(fy)]);if(hc){for(var m=f;m<=t;m++)a+=num(hc[String(m)]);}
+  if(!a)a=num(d&&d.total_mb);
   var g=(ly>0)?((a-ly)/ly*100):null;
   return {a:a,ly:ly,g:g};
 }
@@ -167,7 +170,9 @@ function drawChannelSummary(){
     var cls=(grow!=null&&grow>=0)?"up":"down";
     var gtxt=(grow==null)?"\u2014":((grow>=0?"+":"")+grow.toFixed(1)+"%");
     var lg="logos/"+r.id+".png";
-    h+='<div class="chcard">';
+        var bg=grow!=null?(grow>=0?"#dcfce7":"#fee2e2"):"#fff";
+    var bstyle=bg!=="#fff"?" style=\"background:"+bg+"\"":"";
+    h+='<div class="chcard"'+bstyle+'>';
     h+='  <div class="chhead"><span class="chname">'+r.label+'</span></div>';
     h+='  <div class="chcon">'+sh.toFixed(1)+'%<small>Con</small></div>';
     h+='  <div class="chval">'+fmt(r.a)+'<small>MB</small></div>';
