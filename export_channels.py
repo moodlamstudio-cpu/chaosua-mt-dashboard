@@ -69,9 +69,9 @@ for ch in ch_m:
     for mat,(v,d,c) in ch_mat[ch].items(): catt[c]+=v
     catitems=[{"name":c,"mb":round(v/1e6,2),"pct":round(v/tot*100,1) if tot else 0} for c,v in sorted(catt.items(),key=lambda x:-x[1])]
     sku_all=[{"name":d,"mb":round(v/1e6,2),"cat":c} for mat,(v,d,c) in mats]
-    sku_bycat={c:[s for s in sku_all if s["cat"]==c][:10] for c,_ in catt.items()}
+    sku_bycat={c:[s for s in sku_all if s["cat"]==c] for c,_ in catt.items()}
     chan_data[ch]={"label":ch,"total_mb":round(tot/1e6,2),"monthly":{str(mm):round(ch_m[ch][mm]/1e6,2) for mm in range(1,13)},
-      "category":{"total_mb":round(tot/1e6,2),"items":catitems},"top_sku_all":sku_all[:15],"top_sku_by_cat":sku_bycat,
+      "category":{"total_mb":round(tot/1e6,2),"items":catitems},"top_sku_all":sku_all,"top_sku_by_cat":sku_bycat,
       "monthly_by_cat":{cat:{k:{str(mm):round(v[k][mm]/1e6,2) for mm in range(1,13)} for k in ("actual","ly")} for cat,v in ch_cat_series[ch].items()},
       "monthly_by_sku":{name:{"cat":v["cat"],**{k:{str(mm):round(v[k][mm]/1e6,2) for mm in range(1,13)} for k in ("actual","ly")}} for name,v in ch_sku_series[ch].items()},
       "annual":{str(y):round(v/1e6,2) for y,v in sorted(ch_annual[ch].items())},
@@ -103,8 +103,8 @@ for c in mt:
 sku_all=[{"name":d,"mb":round(v/1e6,2),"cat":c} for mat,(v,d,c) in skum.items()]
 sku_all.sort(key=lambda x:-x["mb"])
 chan_data["MT"]={"label":"MT (Makro+Lotus')","total_mb":round(tot/1e6,2),"monthly":{str(mm):round(m[mm],2) for mm in range(1,13)},
-  "category":{"total_mb":round(tot/1e6,2),"items":catitems},"top_sku_all":sku_all[:15],
-  "top_sku_by_cat":{c:[s for s in sku_all if s["cat"]==c][:10] for c,_ in catm.items()}}
+  "category":{"total_mb":round(tot/1e6,2),"items":catitems},"top_sku_all":sku_all,
+  "top_sku_by_cat":{c:[s for s in sku_all if s["cat"]==c] for c,_ in catm.items()}}
 # merge monthly category/SKU series for MT
 for field in ("monthly_by_cat","monthly_by_sku"):
     merged={}

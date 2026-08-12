@@ -45,11 +45,12 @@
   .chlogo{display:inline-block;background:#f1f5f9;border:1px solid var(--border);border-radius:5px;padding:3px 8px;font-size:11px;font-weight:700;color:var(--txt);vertical-align:middle;white-space:nowrap;}
   #chTable td,#chTable th{vertical-align:middle;}
   .perf-scroll{overflow:auto;border:1px solid #f1f5f9;border-radius:8px;}
-  .sku-scroll{max-height:420px;}
+  .sku-scroll{max-height:420px;scrollbar-gutter:stable;}
   .cat-perf-scroll{overflow-x:auto;overflow-y:visible;max-height:none;}
   .perf-scroll table{min-width:820px;}
   .perf-scroll thead th{position:sticky;top:0;z-index:2;background:#fff;box-shadow:0 1px 0 var(--border);}
-  .sku-scroll tfoot td{position:sticky;bottom:0;z-index:2;background:#f8fafc;box-shadow:0 -2px 0 #cbd5e1;font-weight:800;}
+  .sku-scroll tfoot td{position:sticky;bottom:0;z-index:4;background:#f8fafc;box-shadow:0 -2px 0 #cbd5e1;font-weight:800;}
+  .recon-row td{color:#64748b;font-style:italic;background:#fff7ed;}
   .cat-perf-scroll tfoot td{background:#f8fafc;border-top:2px solid #cbd5e1;font-weight:800;}
   .perf-row{cursor:pointer;}.perf-row:hover td{background:#f8fafc;}
   .perf-row.growing td{background:#dcfce7;}.perf-row.growing:hover td{background:#bbf7d0;}
@@ -96,6 +97,6 @@
   <div class="card"><h3><span>Sales by Channel — YTD 2026 (MB)</span><span class="tag">All MT · vs LY</span></h3><div id="chTable"></div></div>
 </div>
 <footer>CHAOSUA . MT Sales Dashboard . Source: Dashboard Pivot</footer>
-<script src="app.js?v=20260812v19"></script>
+<script src="app.js?v=20260812v20"></script>
 </body>
 </html>
