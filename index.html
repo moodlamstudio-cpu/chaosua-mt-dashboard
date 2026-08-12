@@ -4,7 +4,7 @@
 <title>CHAOSUA | MT Sales Dashboard</title>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 <style>
-  :root{--bg:#f8fafc;--border:#e2e8f0;--txt:#0f172a;--muted:#64748b;--red:#e11d48;--blue:#2563eb;--green:#16a34a;}
+  :root{--bg:#ffffff;--border:#e2e8f0;--txt:#0f172a;--muted:#64748b;--red:#e11d48;--blue:#2563eb;--green:#16a34a;}
   *{margin:0;padding:0;box-sizing:border-box;font-family:'Segoe UI','Noto Sans Thai',sans-serif;}
   body{background:var(--bg);color:var(--txt);}
   header{background:#fff;border-bottom:1px solid var(--border);padding:14px 28px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;}
@@ -20,14 +20,14 @@
   .seg button{border:none;background:transparent;padding:8px 16px;font-size:13px;font-weight:600;color:var(--muted);cursor:pointer;}
   .seg button.active{background:#0f172a;color:#fff;}
   .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px;margin-bottom:20px;}
-  .kpi{box-sizing:border-box;background:rgba(217,217,217,.58);border:1px solid #fff;border-radius:17px;padding:18px;box-shadow:0 4px 14px rgba(0,0,0,.22);transition:all .5s;user-select:none;color:#000;-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);}
+  .kpi{box-sizing:border-box;background:rgba(255,255,255,.6);border:1px solid #fff;border-radius:17px;padding:18px;box-shadow:0 4px 14px rgba(0,0,0,.22);transition:all .5s;user-select:none;color:#000;-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);}
   .kpi:hover{border-color:#000;transform:scale(1.05);z-index:2;position:relative;}
   .kpi:active{transform:scale(.95) rotateZ(1.7deg);}
   .kpi .lbl{font-size:12px;color:var(--muted);margin-bottom:8px;font-weight:600;}
   .kpi .val{font-size:27px;font-weight:800;} .kpi .val small{font-size:12px;color:var(--muted);font-weight:600;}
   .kpi .cmp{font-size:12px;margin-top:6px;color:var(--muted);}
   .up{color:#16a34a;font-weight:700;} .down{color:#e11d48;font-weight:700;}
-  .card{box-sizing:border-box;background:rgba(217,217,217,.58);border:1px solid #fff;border-radius:17px;padding:20px;margin-bottom:20px;box-shadow:0 4px 14px rgba(0,0,0,.22);transition:all .5s;user-select:none;color:#000;-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);}
+  .card{box-sizing:border-box;background:rgba(255,255,255,.6);border:1px solid #fff;border-radius:17px;padding:20px;margin-bottom:20px;box-shadow:0 4px 14px rgba(0,0,0,.22);transition:all .5s;user-select:none;color:#000;-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);}
   .card:hover{border-color:#000;transform:scale(1.05);z-index:2;position:relative;}
   .card:active{transform:scale(.95) rotateZ(1.7deg);}
   .card h3{font-size:14px;font-weight:700;margin-bottom:14px;display:flex;justify-content:space-between;align-items:center;}
@@ -49,7 +49,7 @@
 
   .chgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(185px,1fr));gap:14px;}
   @media(min-width:1100px){.chgrid{grid-template-columns:repeat(5,1fr);}}
-  .chcard{box-sizing:border-box;background:rgba(217,217,217,.58);border:1px solid #fff;border-radius:17px;padding:14px;text-align:center;box-shadow:0 4px 14px rgba(0,0,0,.22);transition:all .5s;user-select:none;color:#000;cursor:pointer;-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);}
+  .chcard{box-sizing:border-box;background:rgba(255,255,255,.6);border:1px solid #fff;border-radius:17px;padding:14px;text-align:center;box-shadow:0 4px 14px rgba(0,0,0,.22);transition:all .5s;user-select:none;color:#000;cursor:pointer;-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);}
   .chcard:hover{border-color:#000;transform:scale(1.05);z-index:2;position:relative;}
   .chcard:active{transform:scale(.95) rotateZ(1.7deg);}
   .chhead{display:flex;align-items:center;justify-content:center;gap:8px;margin-bottom:8px;min-height:28px;}
