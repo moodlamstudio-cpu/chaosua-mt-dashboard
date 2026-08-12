@@ -115,7 +115,7 @@ function renderAll(){
     }
     setV("hDate",MONTHS[lastClosed-1]+" "+fy);
     drawAnnual();drawMonthly();drawTable();
-    drawCategory(c);drawSku(c);drawChannelSummary();
+    drawCategory(c);drawSku(c);drawCategoryPerformance(c);drawChannelSummary();
     if(kpiPick)applyKpiPick();
   }catch(e){setT("tgM","ERR: "+e.message);}
 }
@@ -174,13 +174,25 @@ function drawCategory(c){var el=document.getElementById("cCat");if(!el||!Chart)r
  var rows=document.querySelectorAll(".catrow");for(var i=0;i<rows.length;i++){(function(r){r.onclick=function(){toggleCat(r.dataset.cat);};})(rows[i]);}}
 function toggleCat(cat){activeCat=(activeCat===cat)?null:cat;activeSku=null;kpiPick=null;renderAll();}
 function toggleSku(name,cat){if(activeSku===name){activeSku=null;activeCat=null;}else{activeSku=name;activeCat=cat||null;}kpiPick=null;renderAll();}
-function drawSku(c){var tot=c.total_mb||0;var list;
+function perfValues(series){var actual=series&&series.actual||{},ly=series&&series.ly||{},hasLy=hasSeriesData(ly),a=rangeSum(actual,selFrom,selTo),l=hasLy?rangeSum(ly,selFrom,selTo):null,g=hasLy?a-l:null,p=(hasLy&&l!==0)?g/l*100:null;return {actual:a,ly:l,growth:g,pct:p};}
+function perfCell(v,suffix){return v==null?'\u2014':fmt(v)+(suffix||'');}
+function signedPerf(v,suffix){if(v==null)return '\u2014';return '<span class="'+signCls(v)+'">'+(v>0?'+':'')+fmt(v)+(suffix||'')+'</span>';}
+function drawCategoryPerformance(c){
+ var map=c.monthly_by_cat||{},names=Object.keys(map),total=rangeSum(actSeries(c),selFrom,selTo);
+ names.sort(function(a,b){return perfValues(map[b]).actual-perfValues(map[a]).actual;});
+ var h='<thead><tr><th style="text-align:left">Category</th><th>Actual 2025</th><th>Actual 2026</th><th>Growth vs LY (MB)</th><th>% Growth vs LY</th><th>% Contribution</th></tr></thead><tbody>';
+ if(!names.length)h+='<tr><td>No Category</td><td colspan="5">\u2014</td></tr>';
+ names.forEach(function(name){var v=perfValues(map[name]),con=total?v.actual/total*100:0,cls='perf-row'+(v.growth!=null&&v.growth>0?' growing':'')+(activeCat===name?' selected':'');h+='<tr class="'+cls+'" data-cat="'+encodeURIComponent(name)+'"><td style="text-align:left;white-space:normal">'+name+'</td><td>'+perfCell(v.ly)+'</td><td>'+fmt(v.actual)+'</td><td>'+signedPerf(v.growth)+'</td><td>'+signedPerf(v.pct,'%')+'</td><td>'+fmt(con)+'%</td></tr>';});
+ h+='</tbody>';setT('catPerfTable',h);setV('tgCatPerf',label()+(activeCat?' \u2022 '+activeCat:''));
+ Array.prototype.forEach.call(document.querySelectorAll('#catPerfTable .perf-row'),function(r){r.onclick=function(){toggleCat(decodeURIComponent(r.getAttribute('data-cat')));};});
+}
+function drawSku(c){var total=rangeSum(actSeries(c),selFrom,selTo);var list;
  if(activeSku){var base=(c.top_sku_by_cat&&c.top_sku_by_cat[activeCat])?c.top_sku_by_cat[activeCat]:[];list=base.filter(function(s){return s.name===activeSku;});}
  else if(activeCat){list=(c.top_sku_by_cat&&c.top_sku_by_cat[activeCat])?c.top_sku_by_cat[activeCat]:[];}
  else{list=c.top_sku_all||[];}
- if(!list.length){setT("skuTable",'<thead><tr><th>SKU</th><th>MB</th></tr></thead><tbody><tr><td>No SKU</td><td>\u2014</td></tr></tbody>');return;}
- var h='<thead><tr><th>#</th><th style="text-align:left">SKU</th><th>Category</th><th style="text-align:right">MB</th><th style="text-align:right">%</th></tr></thead><tbody>';
- var shown=list.slice(0,10);if(activeCat){var catFocus=currentFocus(c);if(catFocus&&catFocus.series)tot=rangeSum(catFocus.series.actual,1,lastClosed);}shown.forEach(function(s,i){var cat=s.cat||activeCat||"";var p=tot?(s.mb/tot*100):0;var bg=activeSku===s.name?'background:#fef3c7;':'';h+='<tr class="skuro" data-i="'+i+'" style="cursor:pointer;'+bg+'"><td>'+(i+1)+'</td><td style="max-width:220px;white-space:normal;text-align:left">'+s.name+'</td><td>'+cat+'</td><td style="text-align:right">'+fmt(s.mb)+'</td><td style="text-align:right">'+p.toFixed(1)+'%</td></tr>';});
+ if(!list.length){setT("skuTable",'<thead><tr><th>SKU</th><th>Category</th><th>Actual 2025</th><th>Actual 2026</th><th>Growth vs LY (MB)</th><th>% Growth vs LY</th><th>% Contribution</th></tr></thead><tbody><tr><td>No SKU</td><td colspan="6">\u2014</td></tr></tbody>');return;}
+ var h='<thead><tr><th>#</th><th style="text-align:left">SKU</th><th>Category</th><th>Actual 2025</th><th>Actual 2026</th><th>Growth vs LY (MB)</th><th>% Growth vs LY</th><th>% Contribution</th></tr></thead><tbody>';
+ var shown=list.slice();if(activeSku){var sf=c.monthly_by_sku&&c.monthly_by_sku[activeSku];if(sf)total=rangeSum(sf.actual,selFrom,selTo);}else if(activeCat){var cf=c.monthly_by_cat&&c.monthly_by_cat[activeCat];if(cf)total=rangeSum(cf.actual,selFrom,selTo);}shown.sort(function(a,b){return perfValues(c.monthly_by_sku&&c.monthly_by_sku[b.name]).actual-perfValues(c.monthly_by_sku&&c.monthly_by_sku[a.name]).actual;});shown.forEach(function(s,i){var cat=s.cat||activeCat||"",v=perfValues(c.monthly_by_sku&&c.monthly_by_sku[s.name]),p=total?v.actual/total*100:0,cls='skuro perf-row'+(v.growth!=null&&v.growth>0?' growing':'')+(activeSku===s.name?' selected':'');h+='<tr class="'+cls+'" data-i="'+i+'"><td>'+(i+1)+'</td><td style="max-width:260px;white-space:normal;text-align:left">'+s.name+'</td><td>'+cat+'</td><td>'+perfCell(v.ly)+'</td><td>'+fmt(v.actual)+'</td><td>'+signedPerf(v.growth)+'</td><td>'+signedPerf(v.pct,'%')+'</td><td>'+fmt(p)+'%</td></tr>';});
  h+='</tbody>';setT("skuTable",h);
  var rows=document.querySelectorAll(".skuro");for(var i=0;i<rows.length;i++){(function(r){r.onclick=function(){var s=shown[+r.dataset.i];if(s)toggleSku(s.name,s.cat||activeCat||"");};})(rows[i]);}}
 function chGrowthYTD(d,x){
