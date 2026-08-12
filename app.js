@@ -9,6 +9,7 @@ function setV(id,t){var e=document.getElementById(id);if(e)e.textContent=t;}
 var CATCOLR=["#F2E9D8","#59718A","#2F6F6D","#E07A47","#D4A72C","#8FA68F","#C47C8A","#5B3A62"];
 function dark(h){var n=parseInt(h.slice(1),16);return "rgb("+Math.max(0,((n>>16)&255)-35)+","+Math.max(0,((n>>8)&255)-35)+","+Math.max(0,(n&255)-35)+")";}
 var activeCat=null,activeSku=null,kpiPick=null;
+var catSort=null,skuSort=null; // {col:'ly'|'actual'|'growth'|'pct'|'contrib', dir:'desc'|'asc'} or null
 var valueLabelPlugin={id:"valueLabelPlugin",afterDatasetsDraw:function(chart){var ctx=chart.ctx;ctx.save();ctx.textAlign="center";ctx.textBaseline="bottom";ctx.fillStyle="#475569";ctx.font="700 12px sans-serif";chart.data.datasets.forEach(function(ds,di){var datasetType=ds.type||chart.config.type;if(datasetType!=="bar")return;var meta=chart.getDatasetMeta(di);if(!meta||!meta.data)return;meta.data.forEach(function(bar,i){var v=ds.data[i];if(v==null||isNaN(v)||v===0)return;var x=bar.x,y=bar.y;if(x==null||y==null)return;ctx.fillText(num(v).toFixed(0),x,y-6);});});ctx.restore();}};
 if(typeof Chart!=="undefined"){try{Chart.register(valueLabelPlugin);}catch(e){}}
 var piePlugin={id:"piePlugin",afterDraw:function(chart){var ctx=chart.ctx;var o=(chart.options.plugins||{}).pieText;if(!o||o.hide)return;var a=chart.chartArea,cx=(a.left+a.right)/2,cy=(a.top+a.bottom)/2;
@@ -177,26 +178,67 @@ function toggleSku(name,cat){if(activeSku===name){activeSku=null;activeCat=null;
 function perfValues(series){var actual=series&&series.actual||{},ly=series&&series.ly||{},hasLy=hasSeriesData(ly),a=rangeSum(actual,selFrom,selTo),l=hasLy?rangeSum(ly,selFrom,selTo):null,g=hasLy?a-l:null,p=(hasLy&&l!==0)?g/l*100:null;return {actual:a,ly:l,growth:g,pct:p};}
 function perfCell(v,suffix){return v==null?'\u2014':fmt(v)+(suffix||'');}
 function signedPerf(v,suffix){if(v==null)return '\u2014';return '<span class="'+signCls(v)+'">'+(v>0?'+':'')+fmt(v)+(suffix||'')+'</span>';}
+// ---- Tri-state sortable headers for performance tables ----
+function sortPerfRows(rows,key,dir){
+  if(!dir)return rows.slice(); // clear -> default order (rows already default-sorted)
+  var miss=function(x){return x==null||isNaN(x);};
+  var seq=rows.slice();
+  seq.sort(function(a,b){
+    var va=a.vals[key],vb=b.vals[key];
+    var am=miss(va),bm=miss(vb);
+    if(am&&bm)return a.o-b.o;
+    if(am)return 1;      // missing always last
+    if(bm)return -1;
+    if(va<vb)return dir==='desc'?1:-1;
+    if(va>vb)return dir==='desc'?-1:1;
+    return a.o-b.o;      // tie -> stable default order
+  });
+  return seq;
+}
+function perfHeaderCell(label,col,active){
+  var d=active?active.dir:null;
+  var aria=d==='desc'?'descending':d==='asc'?'ascending':'none';
+  var ic=d==='desc'?' \u25bc':d==='asc'?' \u25b2':'';
+  var cls='sort-btn'+(d?' active':'');
+  var sr=(active?'<span class="sr-only">, sorted '+ (d==='desc'?'descending':'ascending')+'</span>':'');
+  return '<th scope="col" aria-sort="'+aria+'"><button type="button" class="'+cls+'" data-colsort="'+col+'" aria-label="Sort by '+label+(d?', currently '+(d==='desc'?'descending':'ascending'):'')+'">'+label+'<span class="sort-ind">'+ic+'</span>'+sr+'</button></th>';
+}
+function nextSortState(cur,key){if(!cur||cur.col!==key)return {col:key,dir:'desc'};if(cur.dir==='desc')return {col:key,dir:'asc'};return null;}
+function bindSortHeaders(scopeId){
+  var tbl=document.getElementById(scopeId);if(!tbl)return;
+  var isCat=scopeId==='catPerfTable';
+  Array.prototype.forEach.call(tbl.querySelectorAll('button[data-colsort]'),function(btn){
+    var col=btn.getAttribute('data-colsort');
+    function doSort(){var ns=nextSortState(isCat?catSort:skuSort,col);if(isCat)catSort=ns;else skuSort=ns;renderAll();}
+    btn.addEventListener('click',doSort);
+    btn.addEventListener('keydown',function(e){if(e.key==='Enter'||e.key===' '){e.preventDefault();doSort();}});
+  });
+}
 function drawCategoryPerformance(c){
  var map=c.monthly_by_cat||{},names=Object.keys(map),total=rangeSum(actSeries(c),selFrom,selTo);
  names.sort(function(a,b){return perfValues(map[b]).actual-perfValues(map[a]).actual;});
- var h='<thead><tr><th style="text-align:left">Category</th><th>Actual 2025</th><th>Actual 2026</th><th>Growth vs LY (MB)</th><th>% Growth vs LY</th><th>% Contribution</th></tr></thead><tbody>';
- if(!names.length)h+='<tr><td>No Category</td><td colspan="5">\u2014</td></tr>';
+ var rows=[];names.forEach(function(name){rows.push({name:name,v:perfValues(map[name])});});
+ rows.forEach(function(r,i){var v=r.v;r.vals={ly:v.ly,actual:v.actual,growth:v.growth,pct:v.pct,contrib:total?v.actual/total*100:0};r.o=i;});
+ var st=catSort,ordered=sortPerfRows(rows,st?st.col:null,st?st.dir:null);
+ var h='<thead><tr><th style="text-align:left">Category</th>'+perfHeaderCell('Actual 2025','ly',st)+perfHeaderCell('Actual 2026','actual',st)+perfHeaderCell('Growth vs LY (MB)','growth',st)+perfHeaderCell('% Growth vs LY','pct',st)+perfHeaderCell('% Contribution','contrib',st)+'</tr></thead><tbody>';
+ if(!ordered.length)h+='<tr><td>No Category</td><td colspan="5">\u2014</td></tr>';
  var ta=0,tl=0,allLy=true;
- names.forEach(function(name){var v=perfValues(map[name]),con=total?v.actual/total*100:0,cls='perf-row'+(v.growth!=null&&v.growth>0?' growing':'')+(activeCat===name?' selected':'');ta+=v.actual;if(v.ly==null)allLy=false;else tl+=v.ly;h+='<tr class="'+cls+'" data-cat="'+encodeURIComponent(name)+'"><td style="text-align:left;white-space:normal">'+name+'</td><td>'+perfCell(v.ly)+'</td><td>'+fmt(v.actual)+'</td><td>'+signedPerf(v.growth)+'</td><td>'+signedPerf(v.pct,'%')+'</td><td>'+fmt(con)+'%</td></tr>';});
+ ordered.forEach(function(r){var v=r.v,con=r.vals.contrib,cls='perf-row'+(v.growth!=null&&v.growth>0?' growing':'')+(activeCat===r.name?' selected':'');ta+=v.actual;if(v.ly==null)allLy=false;else tl+=v.ly;h+='<tr class="'+cls+'" data-cat="'+encodeURIComponent(r.name)+'"><td style="text-align:left;white-space:normal">'+r.name+'</td><td>'+perfCell(v.ly)+'</td><td>'+fmt(v.actual)+'</td><td>'+signedPerf(v.growth)+'</td><td>'+signedPerf(v.pct,'%')+'</td><td>'+fmt(con)+'%</td></tr>';});
  var tg=allLy?ta-tl:null,tp=(allLy&&tl!==0)?tg/tl*100:null;
- h+='</tbody><tfoot><tr class="total"><td style="text-align:left">Total</td><td>'+perfCell(allLy?tl:null)+'</td><td>'+fmt(ta)+'</td><td>'+signedPerf(tg)+'</td><td>'+signedPerf(tp,'%')+'</td><td>'+(names.length?'100.0%':'\u2014')+'</td></tr></tfoot>';setT('catPerfTable',h);setV('tgCatPerf',label()+(activeCat?' \u2022 '+activeCat:''));
+ h+='</tbody><tfoot><tr class="total"><td style="text-align:left">Total</td><td>'+perfCell(allLy?tl:null)+'</td><td>'+fmt(ta)+'</td><td>'+signedPerf(tg)+'</td><td>'+signedPerf(tp,'%')+'</td><td>'+(ordered.length?'100.0%':'\u2014')+'</td></tr></tfoot>';setT('catPerfTable',h);setV('tgCatPerf',label()+(activeCat?' \u2022 '+activeCat:''));
  Array.prototype.forEach.call(document.querySelectorAll('#catPerfTable .perf-row'),function(r){r.onclick=function(){toggleCat(decodeURIComponent(r.getAttribute('data-cat')));};});
+ bindSortHeaders('catPerfTable');
 }
 function skuAuthoritative(c){var series,actual,ly,hasLy;if(activeSku)series=c.monthly_by_sku&&c.monthly_by_sku[activeSku];else if(activeCat)series=c.monthly_by_cat&&c.monthly_by_cat[activeCat];if(series){actual=rangeSum(series.actual,selFrom,selTo);hasLy=hasSeriesData(series.ly);ly=hasLy?rangeSum(series.ly,selFrom,selTo):null;}else{actual=rangeSum(actSeries(c),selFrom,selTo);var lys=comparisonLySeries(c);hasLy=hasSeriesData(lys);ly=hasLy?rangeSum(lys,selFrom,selTo):null;}return {actual:actual,ly:ly};}
 function drawSku(c){var map=c.monthly_by_sku||{},auth=skuAuthoritative(c),total=auth.actual;var list=Object.keys(map).filter(function(name){var s=map[name]||{};if(activeSku)return name===activeSku;if(activeCat)return s.cat===activeCat;return true;}).map(function(name){return {name:name,cat:(map[name]&&map[name].cat)||activeCat||""};});
  if(!list.length){setT("skuTable",'<thead><tr><th>SKU</th><th>Category</th><th>Actual 2025</th><th>Actual 2026</th><th>Growth vs LY (MB)</th><th>% Growth vs LY</th><th>% Contribution</th></tr></thead><tbody><tr><td>No SKU</td><td colspan="6">\u2014</td></tr></tbody>');return;}
- var h='<thead><tr><th>#</th><th style="text-align:left">SKU</th><th>Category</th><th>Actual 2025</th><th>Actual 2026</th><th>Growth vs LY (MB)</th><th>% Growth vs LY</th><th>% Contribution</th></tr></thead><tbody>';
- var shown=list.slice(),ta=0,tl=0;shown.sort(function(a,b){return perfValues(map[b.name]).actual-perfValues(map[a.name]).actual;});shown.forEach(function(s,i){var cat=s.cat||activeCat||"",v=perfValues(map[s.name]),p=total?v.actual/total*100:0,cls='skuro perf-row'+(v.growth!=null&&v.growth>0?' growing':'')+(activeSku===s.name?' selected':'');ta+=v.actual;tl+=v.ly==null?0:v.ly;h+='<tr class="'+cls+'" data-i="'+i+'"><td>'+(i+1)+'</td><td style="max-width:260px;white-space:normal;text-align:left">'+s.name+'</td><td>'+cat+'</td><td>'+perfCell(v.ly)+'</td><td>'+fmt(v.actual)+'</td><td>'+signedPerf(v.growth)+'</td><td>'+signedPerf(v.pct,'%')+'</td><td>'+fmt(p)+'%</td></tr>';});
+ var h='<thead><tr><th>#</th><th style="text-align:left">SKU</th><th>Category</th>'+perfHeaderCell('Actual 2025','ly',skuSort)+perfHeaderCell('Actual 2026','actual',skuSort)+perfHeaderCell('Growth vs LY (MB)','growth',skuSort)+perfHeaderCell('% Growth vs LY','pct',skuSort)+perfHeaderCell('% Contribution','contrib',skuSort)+'</tr></thead><tbody>';
+ var shown=list.slice(),ta=0,tl=0;shown.sort(function(a,b){return perfValues(map[b.name]).actual-perfValues(map[a.name]).actual;});var rows=[];shown.forEach(function(s,i){rows.push({name:s.name,cat:s.cat,o:i,v:perfValues(map[s.name])});});rows.forEach(function(r){var v=r.v;r.vals={ly:v.ly,actual:v.actual,growth:v.growth,pct:v.pct,contrib:total?v.actual/total*100:0};});var st=skuSort,ordered=sortPerfRows(rows,st?st.col:null,st?st.dir:null);ordered.forEach(function(s,i){var cat=s.cat||activeCat||"",v=s.v,p=s.vals.contrib,cls='skuro perf-row'+(v.growth!=null&&v.growth>0?' growing':'')+(activeSku===s.name?' selected':'');ta+=v.actual;tl+=v.ly==null?0:v.ly;h+='<tr class="'+cls+'" data-sku="'+encodeURIComponent(s.name)+'" data-cat="'+encodeURIComponent(cat||'')+'"><td>'+(i+1)+'</td><td style="max-width:260px;white-space:normal;text-align:left">'+s.name+'</td><td>'+cat+'</td><td>'+perfCell(v.ly)+'</td><td>'+fmt(v.actual)+'</td><td>'+signedPerf(v.growth)+'</td><td>'+signedPerf(v.pct,'%')+'</td><td>'+fmt(p)+'%</td></tr>';});
  var residualA=auth.actual-ta,residualLy=auth.ly==null?null:auth.ly-tl;if(Math.abs(residualA)>.005||(residualLy!=null&&Math.abs(residualLy)>.005)){var rg=residualLy==null?null:residualA-residualLy,rp=(residualLy&&rg!=null)?rg/residualLy*100:null;h+='<tr class="recon-row"><td></td><td style="text-align:left;white-space:normal">Unallocated / No SKU detail</td><td></td><td>'+perfCell(residualLy)+'</td><td>'+fmt(residualA)+'</td><td>'+signedPerf(rg)+'</td><td>'+signedPerf(rp,'%')+'</td><td>'+fmt(total?residualA/total*100:0)+'%</td></tr>';}
  var tg=auth.ly==null?null:auth.actual-auth.ly,tp=(auth.ly&&tg!=null)?tg/auth.ly*100:null;
  h+='</tbody><tfoot><tr class="total"><td></td><td style="text-align:left">Total</td><td></td><td>'+perfCell(auth.ly)+'</td><td>'+fmt(auth.actual)+'</td><td>'+signedPerf(tg)+'</td><td>'+signedPerf(tp,'%')+'</td><td>100.0%</td></tr></tfoot>';setT("skuTable",h);
- var rows=document.querySelectorAll(".skuro");for(var i=0;i<rows.length;i++){(function(r){r.onclick=function(){var s=shown[+r.dataset.i];if(s)toggleSku(s.name,s.cat||activeCat||"");};})(rows[i]);}}
+ var srows=document.querySelectorAll(".skuro");for(var i=0;i<srows.length;i++){(function(r){r.onclick=function(){var n=r.getAttribute('data-sku'),cat=r.getAttribute('data-cat');if(n)toggleSku(decodeURIComponent(n),decodeURIComponent(cat||'')||activeCat||"");};})(srows[i]);}
+ bindSortHeaders('skuTable');}
 function chGrowthYTD(d,x){
   // Compare current YTD with the same closed-month range in the prior year.
   var ly=0,h=(d&&d.history&&d.history[x]);if(h){for(var m=1;m<=lastClosed;m++)ly+=num(h[String(m)]);}

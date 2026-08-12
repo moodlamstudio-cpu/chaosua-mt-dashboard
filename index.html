@@ -69,6 +69,12 @@
 .chans{display:flex;flex-wrap:wrap;gap:4px 6px;align-items:center;}
   @media(prefers-reduced-motion:reduce){.kpi,.card,.chcard{transition:none;}}
   @media(prefers-reduced-motion:reduce){.kpi:hover,.card:hover,.chcard:hover{transform:none;}}
+  .sr-only{position:absolute;width:1px;height:1px;margin:-1px;padding:0;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0;}
+  th .sort-btn{background:none;border:none;padding:0;margin:0;font:inherit;letter-spacing:inherit;text-transform:inherit;color:inherit;cursor:pointer;white-space:nowrap;text-align:inherit;width:100%;}
+  th .sort-btn:hover,th .sort-btn:focus-visible{color:#0f172a;}
+  th .sort-btn.active{color:#0f172a;font-weight:800;}
+  th .sort-btn:focus-visible{outline:2px solid #2563eb;outline-offset:2px;border-radius:3px;}
+  .sort-ind{font-size:10px;font-weight:700;}
 </style></head>
 <body>
 <header>
@@ -97,6 +103,6 @@
   <div class="card"><h3><span>Sales by Channel — YTD 2026 (MB)</span><span class="tag">All MT · vs LY</span></h3><div id="chTable"></div></div>
 </div>
 <footer>CHAOSUA . MT Sales Dashboard . Source: Dashboard Pivot</footer>
-<script src="app.js?v=20260812v20"></script>
+<script src="app.js?v=20260812v21"></script>
 </body>
 </html>
