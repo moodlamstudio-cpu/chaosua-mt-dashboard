@@ -20,12 +20,16 @@
   .seg button{border:none;background:transparent;padding:8px 16px;font-size:13px;font-weight:600;color:var(--muted);cursor:pointer;}
   .seg button.active{background:#0f172a;color:#fff;}
   .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px;margin-bottom:20px;}
-  .kpi{background:#fff;border:1px solid var(--border);border-radius:13px;padding:18px;}
+  .kpi{box-sizing:border-box;background:rgba(217,217,217,.58);border:1px solid #fff;border-radius:17px;padding:18px;box-shadow:0 4px 14px rgba(0,0,0,.22);transition:all .5s;user-select:none;color:#000;-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);}
+  .kpi:hover{border-color:#000;transform:scale(1.05);z-index:2;position:relative;}
+  .kpi:active{transform:scale(.95) rotateZ(1.7deg);}
   .kpi .lbl{font-size:12px;color:var(--muted);margin-bottom:8px;font-weight:600;}
   .kpi .val{font-size:27px;font-weight:800;} .kpi .val small{font-size:12px;color:var(--muted);font-weight:600;}
   .kpi .cmp{font-size:12px;margin-top:6px;color:var(--muted);}
   .up{color:#16a34a;font-weight:700;} .down{color:#e11d48;font-weight:700;}
-  .card{background:#fff;border:1px solid var(--border);border-radius:13px;padding:20px;margin-bottom:20px;}
+  .card{box-sizing:border-box;background:rgba(217,217,217,.58);border:1px solid #fff;border-radius:17px;padding:20px;margin-bottom:20px;box-shadow:0 4px 14px rgba(0,0,0,.22);transition:all .5s;user-select:none;color:#000;-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);}
+  .card:hover{border-color:#000;transform:scale(1.05);z-index:2;position:relative;}
+  .card:active{transform:scale(.95) rotateZ(1.7deg);}
   .card h3{font-size:14px;font-weight:700;margin-bottom:14px;display:flex;justify-content:space-between;align-items:center;}
   .card h3 .tag{font-size:11px;color:var(--muted);font-weight:500;background:#f1f5f9;padding:3px 9px;border-radius:20px;}
   .chartbox{position:relative;height:380px;}
@@ -45,7 +49,9 @@
 
   .chgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(185px,1fr));gap:14px;}
   @media(min-width:1100px){.chgrid{grid-template-columns:repeat(5,1fr);}}
-  .chcard{background:#fff;border:1px solid var(--border);border-radius:12px;padding:14px;text-align:center;}
+  .chcard{box-sizing:border-box;background:rgba(217,217,217,.58);border:1px solid #fff;border-radius:17px;padding:14px;text-align:center;box-shadow:0 4px 14px rgba(0,0,0,.22);transition:all .5s;user-select:none;color:#000;cursor:pointer;-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);}
+  .chcard:hover{border-color:#000;transform:scale(1.05);z-index:2;position:relative;}
+  .chcard:active{transform:scale(.95) rotateZ(1.7deg);}
   .chhead{display:flex;align-items:center;justify-content:center;gap:8px;margin-bottom:8px;min-height:28px;}
 .chname{font-size:12px;font-weight:700;color:var(--txt);}
   .chval{font-size:16px;font-weight:700;color:var(--txt);margin:2px 0 2px;} .chval small{font-size:11px;color:var(--muted);font-weight:600;}
@@ -53,6 +59,8 @@
   .chly{font-size:11px;color:var(--muted);}
 .chk{display:inline-flex;align-items:center;gap:5px;margin:3px 10px 3px 0;cursor:pointer;font-size:12px;font-weight:600;white-space:nowrap;}
 .chans{display:flex;flex-wrap:wrap;gap:4px 6px;align-items:center;}
+  @media(prefers-reduced-motion:reduce){.kpi,.card,.chcard{transition:none;}}
+  @media(prefers-reduced-motion:reduce){.kpi:hover,.kpi:active,.card:hover,.card:active,.chcard:hover,.chcard:active{transform:none;}}
 </style></head>
 <body>
 <header>
@@ -80,6 +88,6 @@
   <div class="card"><h3><span>Sales by Channel — YTD 2026 (MB)</span><span class="tag">All MT · vs LY</span></h3><div id="chTable"></div></div>
 </div>
 <footer>CHAOSUA . MT Sales Dashboard . Source: Dashboard Pivot</footer>
-<script src="app.js?v=20260812v10"></script>
+<script src="app.js?v=20260812v11"></script>
 </body>
 </html>
