@@ -242,7 +242,7 @@ function drawChannelSummary(){
     var gap=r.a-r.ly;
     var gtxt=(grow==null)?"\u2014":((gap>=0?"+":"")+gap.toFixed(1)+" MB ("+(grow>=0?"+":"")+grow.toFixed(1)+"%)");
     var lg="logos/"+r.id+".png";
-        var bg=grow!=null?(grow>=0?"#dcfce7":"#fee2e2"):"#fff";
+        var bg=grow!=null?(grow>=0?"#dcfce7":"#fff"):"#fff";
     var bstyle=bg!=="#fff"?" style=\"background:"+bg+"\"":"";
     h+='<div class="chcard" data-ch="'+r.id+'"'+bstyle+' style="cursor:pointer">';
     h+='  <div class="chhead"><span class="chname">'+r.label+'</span></div>';
