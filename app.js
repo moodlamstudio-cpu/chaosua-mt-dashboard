@@ -6,7 +6,7 @@ function pct(a,b){a=num(a);b=num(b);if(!b)return null;return ((a-b)/b*100);}
 function destroy(id){if(charts[id]){charts[id].destroy();charts[id]=null;}}
 function setT(id,h){var e=document.getElementById(id);if(e)e.innerHTML=h;}
 function setV(id,t){var e=document.getElementById(id);if(e)e.textContent=t;}
-var CATCOLR=["#93c5fd","#f9a8d4","#86efac","#fcd34d","#c4b5fd","#67e8f9","#fdba74","#a7f3d0","#fca5a5","#bfdbfe","#d8b4fe","#bef264"];
+var CATCOLR=["#F2E9D8","#59718A","#2F6F6D","#E07A47","#D4A72C","#8FA68F","#C47C8A","#5B3A62"];
 function dark(h){var n=parseInt(h.slice(1),16);return "rgb("+Math.max(0,((n>>16)&255)-35)+","+Math.max(0,((n>>8)&255)-35)+","+Math.max(0,(n&255)-35)+")";}
 var activeCat=null,activeSku=null,kpiPick=null;
 var valueLabelPlugin={id:"valueLabelPlugin",afterDatasetsDraw:function(chart){var ctx=chart.ctx;ctx.save();ctx.textAlign="center";ctx.textBaseline="bottom";ctx.fillStyle="#475569";ctx.font="700 12px sans-serif";chart.data.datasets.forEach(function(ds,di){var datasetType=ds.type||chart.config.type;if(datasetType!=="bar")return;var meta=chart.getDatasetMeta(di);if(!meta||!meta.data)return;meta.data.forEach(function(bar,i){var v=ds.data[i];if(v==null||isNaN(v)||v===0)return;var x=bar.x,y=bar.y;if(x==null||y==null)return;ctx.fillText(num(v).toFixed(0),x,y-6);});});ctx.restore();}};
