@@ -24,7 +24,8 @@ function selAll(){
       if(c.s_le)out.s_le[String(m)]=num(out.s_le[String(m)])+num(c.s_le[String(m)]||0);
       if(c.s_ly)out.s_ly[String(m)]=num(out.s_ly[String(m)])+num(c.s_ly[String(m)]||0);
       if(c.s_aop)out.s_aop[String(m)]=num(out.s_aop[String(m)])+num(c.s_aop[String(m)]||0);}
-    ["2025","2026"].forEach(function(y){out.history[y]=out.history[y]||{};var h=c.history&&c.history[y]||{};for(var m=1;m<=12;m++)out.history[y][String(m)]=num(out.history[y][String(m)])+num(h[String(m)]||0);});
+    // Merge prior-year history for ALL available years so the annual chart can show 2023/2024 etc. too.
+    var hys=c.history||{};Object.keys(hys).forEach(function(y){out.history[y]=out.history[y]||{};var h=hys[y]||{};for(var m=1;m<=12;m++)out.history[y][String(m)]=num(out.history[y][String(m)])+num(h[String(m)]||0);});
     var an=c.annual||{};Object.keys(an).forEach(function(y){out.annual[y]=num(out.annual[y]||0)+num(an[y]);});
     var ci=c.category&&c.category.items||[];ci.forEach(function(it){var ex=null;for(var k=0;k<out.category.items.length;k++)if(out.category.items[k].name===it.name){ex=out.category.items[k];break;}if(ex)ex.mb=ex.mb+it.mb;else out.category.items.push({name:it.name,mb:it.mb,pct:it.pct});});
     // Merge category series for linked category filtering.

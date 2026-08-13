@@ -37,11 +37,15 @@ const { chromium } = require('playwright');
   });
   const close = (a, b) => a.length === b.length && a.every((x, i) => Math.abs(x - b[i]) < 0.001);
   const y2025 = result.years.indexOf('2025');
+  const y2023 = result.years.indexOf('2023');
+  const y2024 = result.years.indexOf('2024');
   const assertions = {
     total_uses_selected_range: close(result.totalJanAug, result.totalJanAugExpected),
     total_single_month_specific: close(result.totalMar, result.totalMarExpected),
     total_changes_with_month_filter: !close(result.totalJanAug, result.totalMar),
     total_2025_jan_aug_below_full_year: result.totalJanAug[y2025] < 245.64,
+    total_2023_visible_in_multi_channel: y2023 >= 0 && result.totalJanAug[y2023] > 0 && result.totalMar[y2023] > 0,
+    total_2024_visible_in_multi_channel: y2024 >= 0 && result.totalJanAug[y2024] > 0 && result.totalMar[y2024] > 0,
     category_uses_selected_range: close(result.categoryJanAug, result.categoryExpected),
     category_2025_jan_aug_is_78_1: Math.abs(result.categoryJanAug[y2025] - 78.09) < 0.011,
     category_changes_with_month_filter: !close(result.categoryJanAug, result.categoryMarMay),
