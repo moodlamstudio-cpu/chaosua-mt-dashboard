@@ -75,8 +75,38 @@
   th .sort-btn.active{color:#0f172a;font-weight:800;}
   th .sort-btn:focus-visible{outline:2px solid #2563eb;outline-offset:2px;border-radius:3px;}
   .sort-ind{font-size:10px;font-weight:700;}
+  /* ---- Password gate ---- */
+  #dash{display:none;}
+  #gate{position:fixed;inset:0;z-index:1000;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#f7f7f7 0%,#eeeeee 100%);padding:20px;}
+  .gate-card{width:100%;max-width:400px;background:#fff;border:1px solid var(--border);border-radius:20px;box-shadow:0 18px 50px rgba(15,23,42,.16);padding:34px 30px;text-align:center;}
+  .gate-logo{height:64px;width:auto;object-fit:contain;display:block;margin:0 auto 14px;}
+  .gate-lock{width:54px;height:54px;margin:6px auto 16px;border-radius:50%;background:#0f172a;color:#fff;display:flex;align-items:center;justify-content:center;}
+  .gate-title{font-size:20px;font-weight:800;color:var(--txt);}
+  .gate-sub{font-size:12px;color:var(--muted);margin:6px 0 22px;}
+  .gate-input{width:100%;box-sizing:border-box;background:#f1f5f9;border:1.5px solid var(--border);border-radius:11px;padding:13px 15px;font-size:16px;font-weight:600;letter-spacing:6px;text-align:center;color:var(--txt);outline:none;transition:border-color .2s,box-shadow .2s;}
+  .gate-input:focus{border-color:var(--red);box-shadow:0 0 0 3px rgba(225,29,72,.12);background:#fff;}
+  .gate-btn{width:100%;margin-top:14px;background:var(--red);color:#fff;border:none;border-radius:11px;padding:13px;font-size:15px;font-weight:700;cursor:pointer;transition:background .2s,transform .05s;}
+  .gate-btn:hover{background:#be123c;}
+  .gate-btn:active{transform:translateY(1px);}
+  .gate-btn:disabled{opacity:.6;cursor:default;}
+  .gate-err{min-height:20px;font-size:13px;font-weight:600;color:var(--red);margin-top:12px;}
+  .gate-hint{font-size:11px;color:#cbd5e1;margin-top:18px;}
+  @media(max-width:480px){.gate-card{padding:26px 20px;}.gate-title{font-size:18px;}.gate-input{letter-spacing:4px;}}
 </style></head>
 <body>
+<div id="gate" role="dialog" aria-modal="true" aria-labelledby="gateTitle">
+  <div class="gate-card">
+    <img class="gate-logo" src="logo.jpg" alt="CHAOSUA">
+    <div class="gate-lock" aria-hidden="true"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></div>
+    <div class="gate-title" id="gateTitle">Dashboard ล็อกอิน</div>
+    <div class="gate-sub">กรอกรหัสผ่านเพื่อเข้าใช้งาน</div>
+    <input type="password" id="gatePass" class="gate-input" autocomplete="off" inputmode="numeric" maxlength="20" placeholder="รหัสผ่าน" aria-label="รหัสผ่าน">
+    <button type="button" id="gateBtn" class="gate-btn">เข้าสู่ระบบ</button>
+    <p class="gate-err" id="gateErr" role="alert"></p>
+    <div class="gate-hint">Protected · CHAOSUA MT Dashboard</div>
+  </div>
+</div>
+<div id="dash">
 <header>
   <div class="brand"><img class="logo" src="logo.jpg" alt="CHAOSUA">
     <div><h1>MT Sales Dashboard</h1><div class="sub">Modern Trade</div></div></div>
@@ -103,6 +133,55 @@
   <div class="card"><h3><span>Sales by Channel — YTD 2026 (MB)</span><span class="tag">All MT · vs LY</span></h3><div id="chTable"></div></div>
 </div>
 <footer>CHAOSUA . MT Sales Dashboard . Source: Dashboard Pivot</footer>
-<script src="app.js?v=20260813v23"></script>
+</div>
+<script src="app.js?v=20260813v24"></script>
+<script>
+/* ---- Client-side password gate (SHA-256 hash comparison; plaintext is NOT stored) ---- */
+(function(){
+  var HASH="ffd2ba185cf52de55c3049f47ffc949b932ee942056457b8521f703cfece66af";
+  var gate=document.getElementById("gate"),dash=document.getElementById("dash");
+  var pass=document.getElementById("gatePass"),btn=document.getElementById("gateBtn"),errEl=document.getElementById("gateErr");
+
+  /* SHA-256 for non-secure (http) contexts where crypto.subtle is unavailable */
+  function sha256Sync(str){
+    var K=[0x428a2f98,0x71374491,0xb5c0fbcf,0xe9b5dba5,0x3956c25b,0x59f111f1,0x923f82a4,0xab1c5ed5,0xd807aa98,0x12835b01,0x243185be,0x550c7dc3,0x72be5d74,0x80deb1fe,0x9bdc06a7,0xc19bf174,0xe49b69c1,0xefbe4786,0x0fc19dc6,0x240ca1cc,0x2de92c6f,0x4a7484aa,0x5cb0a9dc,0x76f988da,0x983e5152,0xa831c66d,0xb00327c8,0xbf597fc7,0xc6e00bf3,0xd5a79147,0x06ca6351,0x14292967,0x27b70a85,0x2e1b2138,0x4d2c6dfc,0x53380d13,0x650a7354,0x766a0abb,0x81c2c92e,0x92722c85,0xa2bfe8a1,0xa81a664b,0xc24b8b70,0xc76c51a3,0xd192e819,0xd6990624,0xf40e3585,0x106aa070,0x19a4c116,0x1e376c08,0x2748774c,0x34b0bcb5,0x391c0cb3,0x4ed8aa4a,0x5b9cca4f,0x682e6ff3,0x748f82ee,0x78a5636f,0x84c87814,0x8cc70208,0x90befffa,0xa4506ceb,0xbef9a3f7,0xc67178f2];
+    function rotr(x,n){return (x>>>n)|(x<<(32-n));}
+    var msg=str;var l=msg.length;var a1=[];for(var i=0;i<l;i++)a1.push(msg.charCodeAt(i)&0xff);
+    var bitLen=a1.length*8;var t=a1.length;var rem=t%64;a1.push(0x80);while(a1.length%64!==56)a1.push(0);
+    var hi=Math.floor(bitLen/0x100000000),lo=(bitLen>>>0);a1.push((hi>>>24)&0xff);a1.push((hi>>>16)&0xff);a1.push((hi>>>8)&0xff);a1.push(hi&0xff);a1.push((lo>>>24)&0xff);a1.push((lo>>>16)&0xff);a1.push((lo>>>8)&0xff);a1.push(lo&0xff);
+    var H=[0x6a09e667,0xbb67ae85,0x3c6ef372,0xa54ff53a,0x510e527f,0x9b05688c,0x1f83d9ab,0x5be0cd19];
+    for(var o=0;o<a1.length;o+=64){
+      var w=new Array(64);for(var j=0;j<16;j++)w[j]=((a1[o+j*4]<<24)|(a1[o+j*4+1]<<16)|(a1[o+j*4+2]<<8)|(a1[o+j*4+3]))>>>0;
+      for(var jj=16;jj<64;jj++){var s0=rotr(w[jj-15],7)^rotr(w[jj-15],18)^(w[jj-15]>>>3);var s1=rotr(w[jj-2],17)^rotr(w[jj-2],19)^(w[jj-2]>>>10);w[jj]=(w[jj-16]+s0+w[jj-7]+s1)>>>0;}
+      var ah=H[0],bh=H[1],ch=H[2],dh=H[3],eh_=H[4],fh=H[5],gh=H[6],hh=H[7];
+      for(var k=0;k<64;k++){var S1=rotr(eh_,6)^rotr(eh_,11)^rotr(eh_,25);var chv=(eh_&fh)^(~eh_&gh);var t1=(hh+S1+chv+K[k]+w[k])>>>0;var S0=rotr(ah,2)^rotr(ah,13)^rotr(ah,22);var maj=(ah&bh)^(ah&ch)^(bh&ch);var t2=(S0+maj)>>>0;hh=gh;gh=fh;fh=eh_;eh_=(dh+t1)>>>0;dh=ch;ch=bh;bh=ah;ah=(t1+t2)>>>0;}
+      H[0]=(H[0]+ah)>>>0;H[1]=(H[1]+bh)>>>0;H[2]=(H[2]+ch)>>>0;H[3]=(H[3]+dh)>>>0;H[4]=(H[4]+eh_)>>>0;H[5]=(H[5]+fh)>>>0;H[6]=(H[6]+gh)>>>0;H[7]=(H[7]+hh)>>>0;
+    }
+    var hex="";for(var m=0;m<8;m++){var v=H[m];for(var n=3;n>=0;n--){var byte=(v>>>(n*8))&255;hex+=("0123456789abcdef"[byte>>4]+"0123456789abcdef"[byte&15]);}}
+    return hex;
+  }
+
+  function toHex(buf){var b=new Uint8Array(buf);var s="";for(var i=0;i<b.length;i++)s+=("0123456789abcdef"[b[i]>>4])+("0123456789abcdef"[b[i]&15]);return s;}
+
+  function submit(){
+    var val=pass.value;errEl.textContent="";
+    if(!val){errEl.textContent="กรุณากรอกรหัสผ่าน";pass.focus();return;}
+    btn.disabled=true;
+    function done(hash){
+      if(hash===HASH){gate.style.display="none";dash.style.display="block";try{if(typeof load==="function")load();}catch(e){}pass.value="";}
+      else{errEl.textContent="รหัสผ่านไม่ถูกต้อง กรุณาลองอีกครั้ง";pass.select();pass.focus();btn.disabled=false;}
+    }
+    var enc=new TextEncoder();
+    if(window.crypto&&crypto.subtle&&crypto.subtle.digest){
+      crypto.subtle.digest("SHA-256",enc.encode(val)).then(function(buf){done(toHex(buf));}).catch(function(){done(sha256Sync(val));});
+    } else { done(sha256Sync(val)); }
+  }
+  function submitClick(){submit();}
+  function key(e){if(e.key==="Enter"){e.preventDefault();submit();}}
+  btn.addEventListener("click",submitClick);
+  pass.addEventListener("keydown",key);
+  setTimeout(function(){if(dash.style.display==="none")pass.focus();},150);
+})();
+</script>
 </body>
 </html>

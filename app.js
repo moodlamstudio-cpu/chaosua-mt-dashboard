@@ -312,4 +312,4 @@ function drawChannelSummary(){
   el.innerHTML=h;
   Array.prototype.forEach.call(document.querySelectorAll(".chcard[data-ch]"),function(el2){el2.addEventListener("click",function(){selectChan(el2.getAttribute("data-ch"));});});
 }
-load();
+// Dashboard bootstraps after the password gate unlocks it (see index.html).
