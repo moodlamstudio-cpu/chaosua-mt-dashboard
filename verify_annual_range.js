@@ -8,13 +8,18 @@ const { chromium } = require('playwright');
   await page.goto(process.env.DASHBOARD_URL || 'http://127.0.0.1:1477/index.html', { waitUntil: 'domcontentloaded' });
   await page.waitForFunction(() => typeof charts !== 'undefined' && charts.cAnnual);
   const result = await page.evaluate(() => {
+    const rangeSumOf = (history, y, f, t) => { const h = history[y] || {}; let s = 0; for (let m = f; m <= t; m++) s += Number(h[String(m)] || 0); return s; };
     selChans = ['MAKRO', "LOTUS'"]; cur = 'MAKRO'; kpiPick = null;
     activeCat = null; activeSku = null; selFrom = 1; selTo = 8; renderAll();
-    const total = charts.cAnnual.data.datasets[0].data.slice();
-    const totalExpected = Object.keys(C().annual).sort().map(y => Number(C().annual[y] || 0));
-    activeCat = '\u0e02\u0e49\u0e32\u0e27\u0e15\u0e31\u0e07'; renderAll();
-    const categoryJanAug = charts.cAnnual.data.datasets[0].data.slice();
+    const totalJanAug = charts.cAnnual.data.datasets[0].data.slice();
     const years = charts.cAnnual.data.labels.slice();
+    const totalJanAugExpected = years.map(y => rangeSumOf(C().history, y, 1, 8));
+    // selecting a single specific month must reflect that month in the total graph
+    selFrom = 3; selTo = 3; renderAll();
+    const totalMar = charts.cAnnual.data.datasets[0].data.slice();
+    const totalMarExpected = years.map(y => rangeSumOf(C().history, y, 3, 3));
+    activeCat = '\u0e02\u0e49\u0e32\u0e27\u0e15\u0e31\u0e07'; selFrom = 1; selTo = 8; renderAll();
+    const categoryJanAug = charts.cAnnual.data.datasets[0].data.slice();
     const categoryExpected = years.map(y => {
       const h = C().history_by_cat[activeCat][y] || {};
       return Array.from({ length: 8 }, (_, i) => Number(h[String(i + 1)] || 0)).reduce((a, b) => a + b, 0);
@@ -28,12 +33,15 @@ const { chromium } = require('playwright');
       const h = C().history_by_sku[sku][y] || {};
       return [3, 4, 5].map(m => Number(h[String(m)] || 0)).reduce((a, b) => a + b, 0);
     });
-    return { years, total, totalExpected, categoryJanAug, categoryExpected, categoryMarMay, skuMarMay, skuExpected };
+    return { years, totalJanAug, totalJanAugExpected, totalMar, totalMarExpected, categoryJanAug, categoryExpected, categoryMarMay, skuMarMay, skuExpected };
   });
   const close = (a, b) => a.length === b.length && a.every((x, i) => Math.abs(x - b[i]) < 0.001);
   const y2025 = result.years.indexOf('2025');
   const assertions = {
-    total_mode_unchanged: close(result.total, result.totalExpected),
+    total_uses_selected_range: close(result.totalJanAug, result.totalJanAugExpected),
+    total_single_month_specific: close(result.totalMar, result.totalMarExpected),
+    total_changes_with_month_filter: !close(result.totalJanAug, result.totalMar),
+    total_2025_jan_aug_below_full_year: result.totalJanAug[y2025] < 245.64,
     category_uses_selected_range: close(result.categoryJanAug, result.categoryExpected),
     category_2025_jan_aug_is_78_1: Math.abs(result.categoryJanAug[y2025] - 78.09) < 0.011,
     category_changes_with_month_filter: !close(result.categoryJanAug, result.categoryMarMay),
