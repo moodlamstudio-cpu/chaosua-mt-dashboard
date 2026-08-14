@@ -33,6 +33,8 @@
   .head-actions{display:flex;align-items:center;gap:7px;flex-wrap:wrap;justify-content:flex-end;}
   .export-btn{border:1px solid #16a34a;background:#f0fdf4;color:#15803d;border-radius:7px;padding:4px 9px;font-size:11px;font-weight:700;cursor:pointer;}
   .export-btn:hover{background:#dcfce7;}
+  .ppt-btn{border-color:#2563eb;background:#eff6ff;color:#1d4ed8;}
+  .ppt-btn:hover{background:#dbeafe;}
   .chartbox{position:relative;height:380px;}
   .chartbox.annual{height:260px;}
   .chartlegend{display:flex;justify-content:center;align-items:center;gap:18px;font-size:12px;color:#475569;margin:0 0 8px;}
@@ -125,11 +127,11 @@
     <div class="kpi"><div class="lbl">LY 2025 <span id="lblLY" style="font-weight:400;color:#64748b"></span></div><div class="val" id="kLY"><small>MB</small></div><div class="cmp">Gap <b id="kLYgap">-</b> <span id="kLYpc">-</span></div></div>
     <div class="kpi"><div class="lbl">vs AOP <span id="lblAOP" style="font-weight:400;color:#64748b"></span></div><div class="val" id="kAOP"><small>MB</small></div><div class="cmp">Gap <b id="kAOPgap">-</b> <span id="kAOPpc">-</span></div></div>
   </div>
-  <div class="card"><h3><span>Annual Actual Sales (MB)</span><span class="head-actions"><span class="tag" id="tgY">Total</span><button class="export-btn" type="button" onclick="exportSection('annual')">Export Excel</button></span></h3><div class="chartbox annual"><canvas id="cAnnual"></canvas></div></div>
-  <div class="card"><h3><span>Monthly Sales (MB)</span><span class="head-actions"><span class="tag" id="tgM">Total</span><button class="export-btn" type="button" onclick="exportSection('monthly')">Export Excel</button></span></h3><div class="chartlegend"><span class="item" id="lgActual"><i class="bar" style="background:#525252"></i>Actual</span><span class="item" id="lgLE"><i class="bar" style="background:#cbd5e1"></i>LE</span><span class="item" id="lgLY"><i class="line dashed" style="border-color:#64748b"></i>LY</span><span class="item" id="lgAOP"><i class="line" style="border-color:#2563eb"></i>AOP</span></div><div class="chartbox"><canvas id="cMonthly"></canvas></div></div>
+  <div class="card"><h3><span>Annual Actual Sales (MB)</span><span class="head-actions"><span class="tag" id="tgY">Total</span><button class="export-btn" type="button" onclick="exportSection('annual')">Export Excel</button><button class="export-btn ppt-btn" type="button" onclick="exportEditablePpt('annual')">Editable PPT</button></span></h3><div class="chartbox annual"><canvas id="cAnnual"></canvas></div></div>
+  <div class="card"><h3><span>Monthly Sales (MB)</span><span class="head-actions"><span class="tag" id="tgM">Total</span><button class="export-btn" type="button" onclick="exportSection('monthly')">Export Excel</button><button class="export-btn ppt-btn" type="button" onclick="exportEditablePpt('monthly')">Editable PPT</button></span></h3><div class="chartlegend"><span class="item" id="lgActual"><i class="bar" style="background:#525252"></i>Actual</span><span class="item" id="lgLE"><i class="bar" style="background:#cbd5e1"></i>LE</span><span class="item" id="lgLY"><i class="line dashed" style="border-color:#64748b"></i>LY</span><span class="item" id="lgAOP"><i class="line" style="border-color:#2563eb"></i>AOP</span></div><div class="chartbox"><canvas id="cMonthly"></canvas></div></div>
   <div class="card"><h3><span>Monthly Table (MB)</span><span class="head-actions"><span class="tag" id="tgTbl">Total</span><button class="export-btn" type="button" onclick="exportSection('monthly_table')">Export Excel</button></span></h3><div style="overflow-x:auto"><table id="mTable"></table></div></div>
   <div style="margin-top:20px">
-    <div class="card"><h3><span>Sales by Category (MB) — YTD</span><span class="head-actions"><span class="tag" id="tgCat">Total</span><button class="export-btn" type="button" onclick="exportSection('category')">Export Excel</button></span></h3><div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><div class="chartbox" style="height:260px;flex:1;min-width:200px"><canvas id="cCat"></canvas></div><div style="flex:1;min-width:200px" id="catLegend"></div></div></div>
+    <div class="card"><h3><span>Sales by Category (MB) — YTD</span><span class="head-actions"><span class="tag" id="tgCat">Total</span><button class="export-btn" type="button" onclick="exportSection('category')">Export Excel</button><button class="export-btn ppt-btn" type="button" onclick="exportEditablePpt('category')">Editable PPT</button></span></h3><div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><div class="chartbox" style="height:260px;flex:1;min-width:200px"><canvas id="cCat"></canvas></div><div style="flex:1;min-width:200px" id="catLegend"></div></div></div>
   </div>
   <div class="card"><h3><span>Category Performance</span><span class="head-actions"><span class="tag" id="tgCatPerf">Total</span><button class="export-btn" type="button" onclick="exportSection('category_performance')">Export Excel</button></span></h3><div class="perf-scroll cat-perf-scroll"><table id="catPerfTable"></table></div></div>
   <div class="card"><h3><span>All SKU Performance</span><span class="head-actions"><span class="tag" id="tgSku">Total</span><button class="export-btn" type="button" onclick="exportSection('sku')">Export Excel</button></span></h3><div class="perf-scroll sku-scroll"><table id="skuTable"></table></div></div>
@@ -138,7 +140,8 @@
 <footer>CHAOSUA . MT Sales Dashboard . Source: Dashboard Pivot</footer>
 </div>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-<script src="app.js?v=20260814v03"></script>
+<script src="https://cdn.jsdelivr.net/npm/pptxgenjs@3.12.0/dist/pptxgen.bundle.js"></script>
+<script src="app.js?v=20260814v04"></script>
 <script>
 /* ---- Client-side password gate (SHA-256 hash comparison; plaintext is NOT stored) ---- */
 (function(){
