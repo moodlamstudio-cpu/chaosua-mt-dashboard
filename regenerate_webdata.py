@@ -326,13 +326,14 @@ def last_sales_date(last_closed):
     return best.isoformat()
 
 
-def merge_kpi(d):
-    """LE/LY/AOP/actual series + YTD KPIs from Dashboard Calc (MB units), matching merge_kpi2.py."""
+def _load_dashboard_calc():
+    """Read Dashboard Calc into per-month dicts (MB units). Used ONLY to derive
+    the last-closed month and to keep the legacy MAKRO/LOTUS'/MT actual+LY series
+    identical to what has been committed. LE/AOP now come from Data Plan Sale."""
     wb = load_workbook(SRC, read_only=True, data_only=True)
     ws = wb["Dashboard Calc"]
-    rows = list(ws.iter_rows(values_only=True))
     mon = {}; makro = {}; lotus = {}
-    for r in rows:
+    for r in ws.iter_rows(values_only=True):
         if isinstance(r[0], (int, float)) and 1 <= r[0] <= 12:
             mon[r[0]] = {"act": (r[1] or 0) + (r[3] or 0),
                          "le": (r[2] or 0) + (r[4] or 0),
@@ -341,30 +342,102 @@ def merge_kpi(d):
             makro[r[0]] = {"act": r[1] or 0, "le": r[2] or 0, "ly": r[5] or 0, "aop": r[7] or 0}
             lotus[r[0]] = {"act": r[3] or 0, "le": r[4] or 0, "ly": r[6] or 0, "aop": r[8] or 0}
     wb.close()
+    return mon, makro, lotus
+
+
+def _load_plan_sale():
+    """Load Data Plan Sale -> channel -> scenario (AOP/LE) -> {month: MB}.
+    All values are stored in MB units (same as Dashboard Calc / UI series).
+    This is the PRIMARY LE/AOP source for all 15 channels."""
+    wb = load_workbook(SRC, read_only=True, data_only=True)
+    ws = wb["Data Plan Sale"]
+    out = {}
+    for r in ws.iter_rows(values_only=True):
+        if r[0] is None or not isinstance(r[4], (int, float)):
+            continue
+        cust = str(r[0]).strip()
+        if r[4] is None:
+            continue
+        try:
+            month = int(r[1])
+        except (TypeError, ValueError):
+            continue
+        if not 1 <= month <= 12:
+            continue
+        scen = (str(r[3]) or "").strip().upper()
+        if scen not in ("AOP", "LE"):
+            continue
+        v = float(r[4] or 0)
+        out.setdefault(cust, {}).setdefault(scen, {})[month] = v
+    wb.close()
+    return out
+
+
+def merge_kpi(d):
+    """Attach planning series (actual/LE/LY/AOP) + YTD KPIs for MT and ALL 15
+    channels, in MB units.
+
+    LE and AOP are sourced PRIMARILY from the "Data Plan Sale" (tblPlanSales)
+    sheet, which holds these forecast rows for every channel (15 channels x 12
+    months x {AOP, LE}). Actual and LY come from each channel's own Raw-data
+    monthly/history (MAKRO/LOTUS' keep the existing Dashboard Calc actual|LY so
+    nothing MAKRO/Lotus-dependent regresses; those values agree with Data Plan
+    Sale LE/AOP anyway). """
+    mon, makro, lotus = _load_dashboard_calc()
+    plan = _load_plan_sale()
 
     last_closed = max([m for m in mon if (mon[m]["act"] or 0) > 0], default=8)
-    act = sum(mon[m]["act"] for m in range(1, last_closed + 1))
+    act_sum = sum(mon[m]["act"] for m in range(1, last_closed + 1))
     # LE mix: closed months use actual, the latest open month uses its LE forecast
     le_mix = sum(mon[m]["act"] for m in range(1, last_closed)) + mon[last_closed]["le"]
-    ly = sum(mon[m]["ly"] for m in range(1, last_closed + 1))
-    aop = sum(mon[m]["aop"] for m in range(1, last_closed + 1))
+    ly_sum = sum(mon[m]["ly"] for m in range(1, last_closed + 1))
+    aop_sum = sum(mon[m]["aop"] for m in range(1, last_closed + 1))
 
     mt = d["MT"]
-    mt["actual_ytd"] = round(act, 2)
+    mt["actual_ytd"] = round(act_sum, 2)
     mt["le_ytd_mix"] = round(le_mix, 2)
-    mt["ly_ytd"] = round(ly, 2)
-    mt["aop_ytd"] = round(aop, 2)
+    mt["ly_ytd"] = round(ly_sum, 2)
+    mt["aop_ytd"] = round(aop_sum, 2)
     mt["s_actual"] = {str(m): round(mon[m]["act"], 2) for m in range(1, 13)}
-    mt["s_le"] = {str(m): round(mon[m]["le"], 2) for m in range(1, 13)}
+    # MT LE/AOP from Data Plan Sale (Makro + Lotus'), matching Dashboard Calc.
+    mt["s_le"] = {str(m): round(plan.get("MAKRO", {}).get("LE", {}).get(m, 0)
+                              + plan.get("LOTUS'", {}).get("LE", {}).get(m, 0), 2)
+                   for m in range(1, 13)}
     mt["s_ly"] = {str(m): round(mon[m]["ly"], 2) for m in range(1, 13)}
-    mt["s_aop"] = {str(m): round(mon[m]["aop"], 2) for m in range(1, 13)}
+    mt["s_aop"] = {str(m): round(plan.get("MAKRO", {}).get("AOP", {}).get(m, 0)
+                               + plan.get("LOTUS'", {}).get("AOP", {}).get(m, 0), 2)
+                    for m in range(1, 13)}
 
+    # MAKRO / LOTUS' keep their committed actual|LY from Dashboard Calc; their
+    # LE/AOP switch to Data Plan Sale (values are identical, source is primary).
     for channel_id, series in (("MAKRO", makro), ("LOTUS'", lotus)):
-        ch = d.get(channel_id, {})
+        ch = d.get(channel_id)
+        if ch is None:
+            continue
         ch["s_actual"] = {str(m): round(series[m]["act"], 2) for m in range(1, 13)}
-        ch["s_le"] = {str(m): round(series[m]["le"], 2) for m in range(1, 13)}
         ch["s_ly"] = {str(m): round(series[m]["ly"], 2) for m in range(1, 13)}
-        ch["s_aop"] = {str(m): round(series[m]["aop"], 2) for m in range(1, 13)}
+        ch["s_le"] = {str(m): round(plan.get(channel_id, {}).get("LE", {}).get(m, 0), 2)
+                       for m in range(1, 13)}
+        ch["s_aop"] = {str(m): round(plan.get(channel_id, {}).get("AOP", {}).get(m, 0), 2)
+                        for m in range(1, 13)}
+
+    # All OTHER channels: enable the planning chart by giving each channel its own
+    # actual (Raw monthly) + LY (2025 history) and the Data Plan Sale LE/AOP.
+    for channel_id in plan:
+        if channel_id in ("MAKRO", "LOTUS'"):
+            continue
+        ch = d.get(channel_id)
+        if ch is None:
+            continue
+        hist25 = ch.get("history", {}).get("2025", {})
+        ch["s_actual"] = {str(m): round(ch.get("monthly", {}).get(m, 0), 2)
+                           for m in range(1, 13)}
+        ch["s_ly"] = {str(m): round(hist25.get(m, 0), 2) for m in range(1, 13)}
+        ch["s_le"] = {str(m): round(plan.get(channel_id, {}).get("LE", {}).get(m, 0), 2)
+                       for m in range(1, 13)}
+        ch["s_aop"] = {str(m): round(plan.get(channel_id, {}).get("AOP", {}).get(m, 0), 2)
+                        for m in range(1, 13)}
+
     d["_lastClosed"] = last_closed
     return last_closed
 
