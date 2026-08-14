@@ -52,6 +52,7 @@ def init_channel():
         "sku_series": defaultdict(lambda: defaultdict(lambda: defaultdict(float))),  # name-> actual/ly -> month -> val
         "sku_name": {},                                   # mat -> desc
         "sku_cat": {},                                    # mat -> cat
+        "sku_cat_desc": {},                               # desc -> cat
     }
 
 def load_product_master(wb):
@@ -106,6 +107,7 @@ def build():
                 s["sku_series"][desc]["actual"][month] += val
                 s["sku_name"][mat] = desc
                 s["sku_cat"][mat] = cat
+                s["sku_cat_desc"][desc] = cat
                 e = s["mat"][mat]
                 e[0] += val
                 if not e[1]:
@@ -144,10 +146,21 @@ def build():
                 "actual": {str(mm): round(series["actual"][mm] / 1e6, 2) for mm in range(1, 13)},
                 "ly": {str(mm): round(series["ly"][mm] / 1e6, 2) for mm in range(1, 13)},
             }
+        # Resolve each SKU's category by description, with a material-key reverse
+        # fallback (sku_cat is keyed by material). This fixes category-filtered
+        # SKU tables showing empty categories.
+        def sku_category(desc):
+            c = s["sku_cat_desc"].get(desc)
+            if c:
+                return c
+            for mat, d in s["sku_name"].items():
+                if d == desc:
+                    return s["sku_cat"].get(mat, "")
+            return ""
         monthly_by_sku = {}
         for desc, series in s["sku_series"].items():
             monthly_by_sku[desc] = {
-                "cat": s["sku_cat"].get(desc, ""),
+                "cat": sku_category(desc),
                 "actual": {str(mm): round(series["actual"][mm] / 1e6, 2) for mm in range(1, 13)},
                 "ly": {str(mm): round(series["ly"][mm] / 1e6, 2) for mm in range(1, 13)},
             }
