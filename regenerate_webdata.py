@@ -430,9 +430,13 @@ def merge_kpi(d):
         if ch is None:
             continue
         hist25 = ch.get("history", {}).get("2025", {})
-        ch["s_actual"] = {str(m): round(ch.get("monthly", {}).get(m, 0), 2)
+        # BUGFIX 2026-08-14: ch["monthly"] and hist25 keyed by STRING months
+        # ("1".."12"), but the range was looking up with int m -> always 0,
+        # so other-channel s_actual/s_ly stayed all-zero, making app.js hasS()
+        # gate FAIL and hide LE/AOP for non-MT channels. Look up by str(m).
+        ch["s_actual"] = {str(m): round(ch.get("monthly", {}).get(str(m), 0), 2)
                            for m in range(1, 13)}
-        ch["s_ly"] = {str(m): round(hist25.get(m, 0), 2) for m in range(1, 13)}
+        ch["s_ly"] = {str(m): round(hist25.get(str(m), 0), 2) for m in range(1, 13)}
         ch["s_le"] = {str(m): round(plan.get(channel_id, {}).get("LE", {}).get(m, 0), 2)
                        for m in range(1, 13)}
         ch["s_aop"] = {str(m): round(plan.get(channel_id, {}).get("AOP", {}).get(m, 0), 2)
