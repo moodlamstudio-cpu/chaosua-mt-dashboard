@@ -116,7 +116,7 @@ function renderAll(){
         var le=leK,ly=lyK,aop=aopK;
         var leDiff=a-le,leP=le>0?(leDiff/le*100):0,leCls=leDiff>=0?"up":"down";
         setT("kLE",fmt(le)+' <small>MB</small>');setT("kGap",(leDiff>=0?"+":"-")+Math.abs(leDiff).toFixed(1)+" MB ("+(leDiff>=0?"+":"-")+Math.abs(leP).toFixed(1)+"%)");document.getElementById("kGap").className=leCls;
-        var lyDiff=a-ly,lyP=ly>0?(lyDiff/ly*100):0,lyCls=lyDiff>=0?"up":"down";
+        var lyDiff=le-ly,lyP=ly>0?(lyDiff/ly*100):0,lyCls=lyDiff>=0?"up":"down";
         setT("kLY",fmt(ly)+' <small>MB</small>');setT("kLYgap",(lyDiff>=0?"+":"-")+Math.abs(lyDiff).toFixed(1)+" MB ("+(lyDiff>=0?"+":"-")+Math.abs(lyP).toFixed(1)+"%)");document.getElementById("kLYgap").className=lyCls;setT("kLYpc","");
         var aopDiff=le-aop,aopP=aop>0?(aopDiff/aop*100):0,aopCls=aopDiff>=0?"up":"down";
         setT("kAOP",fmt(aop)+' <small>MB</small>');setT("kAOPgap",(aopDiff>=0?"+":"-")+Math.abs(aopDiff).toFixed(1)+" MB ("+(aopDiff>=0?"+":"-")+Math.abs(aopP).toFixed(1)+"%)");document.getElementById("kAOPgap").className=aopCls;setT("kAOPpc","");
