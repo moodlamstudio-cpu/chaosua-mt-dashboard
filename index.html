@@ -141,6 +141,16 @@
   var HASH="ffd2ba185cf52de55c3049f47ffc949b932ee942056457b8521f703cfece66af";
   var gate=document.getElementById("gate"),dash=document.getElementById("dash");
   var pass=document.getElementById("gatePass"),btn=document.getElementById("gateBtn"),errEl=document.getElementById("gateErr");
+  var SESSION_KEY="chaosua_mt_dash_authed";
+
+  /* Keep the session across a page refresh (sessionStorage, cleared when the
+     tab/window is closed). Only set after the password hash matches. */
+  function unlock(){
+    gate.style.display="none";dash.style.display="block";
+    try{sessionStorage.setItem(SESSION_KEY,"1");}catch(e){}
+    pass.value="";
+    try{if(typeof load==="function")load();}catch(e){}
+  }
 
   /* SHA-256 for non-secure (http) contexts where crypto.subtle is unavailable */
   function sha256Sync(str){
@@ -168,7 +178,7 @@
     if(!val){errEl.textContent="กรุณากรอกรหัสผ่าน";pass.focus();return;}
     btn.disabled=true;
     function done(hash){
-      if(hash===HASH){gate.style.display="none";dash.style.display="block";try{if(typeof load==="function")load();}catch(e){}pass.value="";}
+      if(hash===HASH){unlock();}
       else{errEl.textContent="รหัสผ่านไม่ถูกต้อง กรุณาลองอีกครั้ง";pass.select();pass.focus();btn.disabled=false;}
     }
     var enc=new TextEncoder();
@@ -180,6 +190,12 @@
   function key(e){if(e.key==="Enter"){e.preventDefault();submit();}}
   btn.addEventListener("click",submitClick);
   pass.addEventListener("keydown",key);
+  /* Restore a previously-authenticated session on refresh so the dashboard
+     does NOT bounce back to the login gate. */
+  (function(){
+    var authed=false;try{authed=sessionStorage.getItem(SESSION_KEY)==="1";}catch(e){}
+    if(authed)unlock();
+  })();
   setTimeout(function(){if(dash.style.display==="none")pass.focus();},150);
 })();
 </script>

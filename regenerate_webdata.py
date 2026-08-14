@@ -322,11 +322,15 @@ if __name__ == "__main__":
         if k not in ordered:
             ordered[k] = data[k]
     data = ordered
-    # Match the committed file format: UTF-16 LE with CRLF, 2-space indent,
-    # so the git diff only shows the logical data changes (not encoding/whitespace churn).
-    text = json.dumps(data, ensure_ascii=False, indent=2).replace("\n", "\r\n")
-    with open(OUT, "w", encoding="utf-16", newline="") as fp:
+    # Write UTF-8 (NO BOM) with 2-space indent and LF line endings.
+    # IMPORTANT: keep this UTF-8. The dashboard loads this file via
+    # fetch().json(), which can only parse UTF-8. A prior version wrote
+    # UTF-16 LE + BOM, which broke the browser JSON parser and made the
+    # dashboard show no data after deploy (fixed 2026-08-14).
+    text = json.dumps(data, ensure_ascii=False, indent=2)
+    with open(OUT, "w", encoding="utf-8", newline="") as fp:
         fp.write(text)
+        fp.write("\n")
     mt = data["MT"]
     print("SAVED", OUT)
     print("last_closed month:", last_closed)
