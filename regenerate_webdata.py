@@ -265,6 +265,67 @@ def build():
 
     return chan_data
 
+def last_sales_date(last_closed):
+    """Return the latest actual sales date (iso str) scoped to the dashboard's
+    MT = MAKRO + LOTUS' channels, within the last closed month (last_closed).
+
+    Date column (Raw data col 3) may be an Excel serial int or a DD/MM/YYYY
+    string. The raw sheet also contains forward/other-channel rows with nonzero
+    values for future months, so we must scope to MT channels AND month <= the
+    last closed month derived from Dashboard Calc, otherwise we would show a
+    future date that does not reflect actual MT sales.
+    """
+    import datetime as _dt
+    _EPOCH = _dt.date(1899, 12, 30)
+
+    def to_date(v):
+        if isinstance(v, int) and v > 10000:
+            return _EPOCH + _dt.timedelta(days=int(v))
+        if isinstance(v, str):
+            try:
+                dd, mm, yy = v.strip().split("/")
+                return _dt.date(int(yy), int(mm), int(dd))
+            except Exception:
+                return None
+        return None
+
+    wb = load_workbook(SRC, read_only=True, data_only=True)
+    ws = wb["Raw data"]
+    best = None
+    for i, r in enumerate(ws.iter_rows(values_only=True)):
+        if i == 0:
+            continue
+        try:
+            year = int(r[0])
+        except (TypeError, ValueError):
+            continue
+        if year != FISCAL_YEAR:
+            continue
+        if norm_channel(r[5]) not in ("MAKRO", "LOTUS'"):
+            continue
+        d = to_date(r[3])
+        if d is None:
+            continue
+        # Scope to the last closed month using the PARSED Date month (the raw
+        # sheet's Month column buckets some rows oddly; the Date itself is
+        # authoritative for "latest sales as of"). Exclude forward/future rows.
+        if d.month > last_closed:
+            continue
+        try:
+            val = float(r[10] or 0)
+        except (TypeError, ValueError):
+            continue
+        if val == 0:
+            continue
+        if best is None or d > best:
+            best = d
+    wb.close()
+    # Fall back to the last day of the last closed month if raw dates are unreadable.
+    if best is None:
+        best = _dt.date(FISCAL_YEAR, last_closed, 28)
+    return best.isoformat()
+
+
 def merge_kpi(d):
     """LE/LY/AOP/actual series + YTD KPIs from Dashboard Calc (MB units), matching merge_kpi2.py."""
     wb = load_workbook(SRC, read_only=True, data_only=True)
@@ -310,6 +371,7 @@ def merge_kpi(d):
 if __name__ == "__main__":
     data = build()
     last_closed = merge_kpi(data)
+    data["_lastSalesDate"] = last_sales_date(last_closed)
     # Preserve the committed top-level key order so the git diff only shows real
     # data changes (no churn from reordering). Unknown channels keep insertion order.
     committed_order = [
@@ -322,6 +384,20 @@ if __name__ == "__main__":
         if k not in ordered:
             ordered[k] = data[k]
     data = ordered
+
+    def _ints(o):
+        """Match the committed data_channels.json convention: serialize any
+        float that is a whole number as an int (0.0 -> 0, 5.0 -> 5). This keeps
+        the git diff tiny and identical to the previous committed representation;
+        it does not change any numeric value."""
+        if isinstance(o, float):
+            return int(o) if o == int(o) else o
+        if isinstance(o, dict):
+            return {k: _ints(v) for k, v in o.items()}
+        if isinstance(o, list):
+            return [_ints(v) for v in o]
+        return o
+    data = _ints(data)
     # Write UTF-8 (NO BOM) with 2-space indent and LF line endings.
     # IMPORTANT: keep this UTF-8. The dashboard loads this file via
     # fetch().json(), which can only parse UTF-8. A prior version wrote
@@ -334,6 +410,7 @@ if __name__ == "__main__":
     mt = data["MT"]
     print("SAVED", OUT)
     print("last_closed month:", last_closed)
+    print("last_sales_date:", data["_lastSalesDate"])
     print("MT annual:", mt["annual"])
     print("MT total_mb (2026 YTD):", mt["total_mb"])
     print("MT actual_ytd:", mt["actual_ytd"], "| le_ytd_mix:", mt["le_ytd_mix"],

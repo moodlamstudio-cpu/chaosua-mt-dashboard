@@ -6,6 +6,13 @@ function pct(a,b){a=num(a);b=num(b);if(!b)return null;return ((a-b)/b*100);}
 function destroy(id){if(charts[id]){charts[id].destroy();charts[id]=null;}}
 function setT(id,h){var e=document.getElementById(id);if(e)e.innerHTML=h;}
 function setV(id,t){var e=document.getElementById(id);if(e)e.textContent=t;}
+// "Latest sales as of" date is auto-derived from the source workbook
+// (data_channels.json => _lastSalesDate, format YYYY-MM-DD). Falls back to the
+// closed-month label if the field is missing, so it is never hardcoded.
+function salesDateTxt(){
+  var v=D&&D._lastSalesDate;if(typeof v==="string"&&v.length>=10){var p=v.split("-");var y=+p[0],m=+p[1],dd=+p[2];if(y&&m>=1&&m<=12&&dd>=1&&dd<=31)return dd+" "+MONTHS[m-1]+" "+y;}
+  return MONTHS[lastClosed-1]+" "+fy;
+}
 var CATCOLR=["#F2E9D8","#59718A","#2F6F6D","#E07A47","#D4A72C","#8FA68F","#C47C8A","#5B3A62"];
 function dark(h){var n=parseInt(h.slice(1),16);return "rgb("+Math.max(0,((n>>16)&255)-35)+","+Math.max(0,((n>>8)&255)-35)+","+Math.max(0,(n&255)-35)+")";}
 var activeCat=null,activeSku=null,kpiPick=null;
@@ -90,7 +97,7 @@ function renderAll(){
     if(!ok){
       // Channels without LE/AOP still show LY when prior-year history exists.
       var focNoPlan=currentFocus(c),a=rangeSum(focNoPlan?focNoPlan.series.actual:actSeries(c),selFrom,selTo),lyNoPlanSeries=focNoPlan?focNoPlan.series.ly:comparisonLySeries(c),lyNoPlan=rangeSum(lyNoPlanSeries,selFrom,selTo),hasLyNoPlan=hasSeriesData(lyNoPlanSeries);
-      setT("kACT",fmt(a)+' <small>MB</small>');setT("kACTuntil",MONTHS[lastClosed-1]+" "+fy);setT("kACTdate","12 Aug 2026");
+      setT("kACT",fmt(a)+' <small>MB</small>');setT("kACTuntil",MONTHS[lastClosed-1]+" "+fy);setT("kACTdate",salesDateTxt());
       setT("kLE","\u2014");setT("kGap","\u2014");
       setT("kLY",hasLyNoPlan?fmt(lyNoPlan)+' <small>MB</small>':"\u2014");setT("kLYgap",hasLyNoPlan?((a-lyNoPlan>=0?"+":"-")+Math.abs(a-lyNoPlan).toFixed(1)+" MB ("+(a-lyNoPlan>=0?"+":"-")+Math.abs(lyNoPlan?(a-lyNoPlan)/lyNoPlan*100:0).toFixed(1)+"%)"):"");setT("kLYcmp",hasLyNoPlan?"Prior-year history":"No LY data");
       setT("kAOP","\u2014");setT("kAOPgap","");setT("kAOPpc","");setT("kAOPcmp","No AOP data");
@@ -100,7 +107,7 @@ function renderAll(){
       if(focusNameKPI){ // Focus mode: use the selected category/SKU Actual and LY only.
         var sr=focKPI.series;for(var mm=selFrom;mm<=selTo;mm++){a+=num(sr.actual&&sr.actual[String(mm)]||0);lyK+=num(sr.ly&&sr.ly[String(mm)]||0);}
       } else { a=rangeSum(c.s_actual,selFrom,selTo);leK=0;for(var mm2=selFrom;mm2<=selTo;mm2++){if(mm2<lastClosed)leK+=num(c.s_actual[String(mm2)]);else leK+=num(c.s_le[String(mm2)]);}lyK=rangeSum(c.s_ly,selFrom,selTo);aopK=rangeSum(c.s_aop,selFrom,selTo);}
-      setT("kACT",fmt(a)+' <small>MB</small>');setT("kACTuntil",MONTHS[lastClosed-1]+" "+fy);setT("kACTdate","12 Aug 2026");
+      setT("kACT",fmt(a)+' <small>MB</small>');setT("kACTuntil",MONTHS[lastClosed-1]+" "+fy);setT("kACTdate",salesDateTxt());
       if(focusNameKPI){
         setT("kLE","\u2014");setT("kGap","\u2014");
         setT("kLY",lyK>0?fmt(lyK)+' <small>MB</small>':"\u2014");setT("kLYgap","");
@@ -115,7 +122,7 @@ function renderAll(){
         setT("kAOP",fmt(aop)+' <small>MB</small>');setT("kAOPgap",(aopDiff>=0?"+":"-")+Math.abs(aopDiff).toFixed(1)+" MB ("+(aopDiff>=0?"+":"-")+Math.abs(aopP).toFixed(1)+"%)");document.getElementById("kAOPgap").className=aopCls;setT("kAOPpc","");
       }
     }
-    setV("hDate",MONTHS[lastClosed-1]+" "+fy);
+    setV("hDate",salesDateTxt());
     drawAnnual();drawMonthly();drawTable();
     drawCategory(c);drawSku(c);drawCategoryPerformance(c);drawChannelSummary();
     if(kpiPick)applyKpiPick();
