@@ -17,6 +17,29 @@ var CATCOLR=["#F2E9D8","#59718A","#2F6F6D","#E07A47","#D4A72C","#8FA68F","#C47C8
 function dark(h){var n=parseInt(h.slice(1),16);return "rgb("+Math.max(0,((n>>16)&255)-35)+","+Math.max(0,((n>>8)&255)-35)+","+Math.max(0,(n&255)-35)+")";}
 var activeCat=null,activeSku=null,kpiPick=null;
 var catSort=null,skuSort=null; // {col:'ly'|'actual'|'growth'|'pct'|'contrib', dir:'desc'|'asc'} or null
+var channelExportRows=[];
+function exportContext(){return {Channel:label(),From:MONTHS[selFrom-1],To:MONTHS[selTo-1],Year:fy,Category:activeCat||"All",SKU:activeSku||"All",LatestSales:salesDateTxt()};}
+function exportCell(v){var s=String(v==null?"":v).trim().replace(/\s*[▼▲]\s*/g,"").replace(/, sorted.*$/i,"");if(s==="—"||s==="-")return "";var p=s.match(/^([+-]?[\d,]+(?:\.\d+)?)%$/);if(p)return Number(p[1].replace(/,/g,""))/100;var n=s.match(/^([+-]?[\d,]+(?:\.\d+)?)$/);if(n)return Number(n[1].replace(/,/g,""));return s;}
+function tableExportRows(id){var t=document.getElementById(id),out=[];if(!t)return out;Array.prototype.forEach.call(t.querySelectorAll("tr"),function(tr){var row=[];Array.prototype.forEach.call(tr.querySelectorAll("th,td"),function(td){row.push(exportCell(td.textContent));});out.push(row);});return out;}
+function chartExportRows(id){var ch=charts[id];if(!ch)return [];var ds=ch.data.datasets||[],head=["Period"].concat(ds.map(function(x){return x.label||"Value";})),out=[head];(ch.data.labels||[]).forEach(function(lb,i){if(lb==="")return;var row=[lb];ds.forEach(function(x){var v=x.data&&x.data[i];row.push(v==null?"":num(v));});out.push(row);});return out;}
+function safeFilePart(s){return String(s||"").replace(/[^A-Za-z0-9_-]+/g,"_").replace(/^_+|_+$/g,"");}
+function exportSection(section){
+  if(typeof XLSX==="undefined"){alert("Excel export library is not available. Please check your connection and refresh.");return;}
+  var names={annual:"Annual_Sales",monthly:"Monthly_Performance",monthly_table:"Monthly_Table",category:"Sales_by_Category",category_performance:"Category_Performance",sku:"SKU_Performance",channel:"Sales_by_Channel"};
+  var rows=[];
+  if(section==="annual")rows=chartExportRows("cAnnual");
+  else if(section==="monthly")rows=chartExportRows("cMonthly");
+  else if(section==="monthly_table")rows=tableExportRows("mTable");
+  else if(section==="category")rows=chartExportRows("cCat");
+  else if(section==="category_performance")rows=tableExportRows("catPerfTable");
+  else if(section==="sku")rows=tableExportRows("skuTable");
+  else if(section==="channel"){rows=[["Channel","Actual (MB)","Contribution","LY 2025 (MB)","Gap (MB)","Growth vs LY"]];channelExportRows.forEach(function(r){rows.push([r.label,r.actual,r.contribution/100,r.ly,r.gap,r.growth==null?"":r.growth/100]);});}
+  if(!rows.length){alert("No data available for export.");return;}
+  var wb=XLSX.utils.book_new(),ws=XLSX.utils.aoa_to_sheet(rows),ctx=exportContext(),meta=[["Filter","Value"]];Object.keys(ctx).forEach(function(k){meta.push([k,ctx[k]]);});
+  ws["!cols"]=rows[0].map(function(_,i){var w=12;rows.forEach(function(r){w=Math.max(w,String(r[i]==null?"":r[i]).length+2);});return {wch:Math.min(w,42)};});
+  XLSX.utils.book_append_sheet(wb,ws,"Data");XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(meta),"Filters");
+  var file="CHAOSUA_"+(names[section]||"Dashboard")+"_"+MONTHS[selFrom-1]+"-"+MONTHS[selTo-1]+"_"+fy+"_"+safeFilePart(label())+".xlsx";XLSX.writeFile(wb,file);
+}
 var valueLabelPlugin={id:"valueLabelPlugin",afterDatasetsDraw:function(chart){var ctx=chart.ctx;ctx.save();ctx.textAlign="center";ctx.textBaseline="bottom";ctx.fillStyle="#475569";ctx.font="700 12px sans-serif";chart.data.datasets.forEach(function(ds,di){var datasetType=ds.type||chart.config.type;if(datasetType!=="bar")return;var meta=chart.getDatasetMeta(di);if(!meta||!meta.data)return;meta.data.forEach(function(bar,i){var v=ds.data[i];if(v==null||isNaN(v)||v===0)return;var x=bar.x,y=bar.y;if(x==null||y==null)return;ctx.fillText(num(v).toFixed(0),x,y-6);});});ctx.restore();}};
 if(typeof Chart!=="undefined"){try{Chart.register(valueLabelPlugin);}catch(e){}}
 var piePlugin={id:"piePlugin",afterDraw:function(chart){var ctx=chart.ctx;var o=(chart.options.plugins||{}).pieText;if(!o||o.hide)return;var a=chart.chartArea,cx=(a.left+a.right)/2,cy=(a.top+a.bottom)/2;
@@ -280,6 +303,7 @@ function chanGrowth(d){
 }
 function drawChannelSummary(){
   var el=document.getElementById("chTable");if(!el)return;
+  setV("tgChRange",MONTHS[selFrom-1]+"–"+MONTHS[selTo-1]+" "+fy);
   var rows=[],tot=0;
   var focInfo=currentFocus(C()),focusName=focInfo&&focInfo.name;
   // Cards follow the active channel filter so their Actual total reconciles to the KPI.
@@ -298,6 +322,7 @@ function drawChannelSummary(){
     tot+=g.a;
   });
   var actCur=cur,actSel=(selChans&&selChans.length===1)?selChans[0]:null;rows.sort(function(x,y){return y.a-x.a;});
+  channelExportRows=rows.map(function(r){var contribution=tot?r.a/tot*100:0;return {label:r.label,actual:r.a,contribution:contribution,ly:r.ly,gap:r.a-r.ly,growth:r.g};});
   var h='<div class="chgrid">';
   rows.forEach(function(r){
     var sh=tot?(r.a/tot*100):0;
