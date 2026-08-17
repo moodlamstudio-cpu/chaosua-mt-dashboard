@@ -10,11 +10,11 @@ Raw data schema:
 
   Raw data columns:
     0 Year, 1 Month, 2 Week, 3 Date, 4 Channel Group (= "MT" for all rows),
-    5 Customer (channel: Makro/Tesco/7Eleven/...), 6 Material, 7 Qty EA,
-    8 Qty BOX, 9 Qty ton, 10 Net value THB   <-- NOTE value is col 10
+    5 Customer (channel), 6 Ship-to party, 7 Material, 8 Qty EA,
+    9 Qty BOX, 10 Qty ton, 11 Net value THB
 
 Channel = Customer (col 5). "tesco" -> LOTUS', "makro" -> MAKRO.
-Sales value = Net value THB (col 10).
+Sales value = Net value THB (col 11).
 LE/LY/AOP series + YTD KPIs come from the "Dashboard Calc" sheet (MB units).
 
 This script only refreshes numbers; it does not change UI/business formulas.
@@ -26,6 +26,7 @@ from openpyxl import load_workbook
 
 SRC = r"C:\Users\teera\OneDrive - TIA NGEE HIANG (CHAOSUA) CO.,LTD\Desktop\Chaosua_Ice\Data\Sales report\Sale Lotus Makro_Dashboard_Pivot.xlsx"
 OUT = "data_channels.json"
+SHIP_OUT = "shipto_data.json"
 
 FISCAL_YEAR = 2026   # FISCAL year shown by the dashboard (unchanged)
 
@@ -83,9 +84,9 @@ def build():
         if not (1 <= month <= 12):
             continue
         ch = norm_channel(r[5])          # Customer = channel
-        mat = str(r[6])                  # Material
+        mat = str(r[7])                  # Material (shifted by Ship-to party)
         try:
-            val = float(r[10] or 0)      # Net value THB
+            val = float(r[11] or 0)      # Net value THB
         except (TypeError, ValueError):
             val = 0
         info = pm.get(mat, {}) or {}
@@ -325,7 +326,7 @@ def last_sales_date(last_closed):
         if d.month > last_closed:
             continue
         try:
-            val = float(r[10] or 0)
+            val = float(r[11] or 0)
         except (TypeError, ValueError):
             continue
         if val == 0:
@@ -337,6 +338,44 @@ def last_sales_date(last_closed):
     if best is None:
         best = _dt.date(FISCAL_YEAR, last_closed, 28)
     return best.isoformat()
+
+def write_shipto_data():
+    """Write compact sales facts used by the browser's Ship-to party filter."""
+    wb = load_workbook(SRC, read_only=True, data_only=True)
+    pm = load_product_master(wb)
+    ws = wb["Raw data"]
+    facts = defaultdict(float)
+    labels = set()
+    for i, r in enumerate(ws.iter_rows(values_only=True)):
+        if i == 0:
+            continue
+        try:
+            year, month = int(r[0]), int(r[1])
+            val = float(r[11] or 0)
+        except (TypeError, ValueError, IndexError):
+            continue
+        if not 1 <= month <= 12 or val == 0:
+            continue
+        ship = str(r[6] or "").strip()
+        if not ship:
+            continue
+        ch = norm_channel(r[5])
+        mat = str(r[7])
+        info = pm.get(mat, {}) or {}
+        cat = info.get("c1") or info.get("g") or "Other"
+        desc = info.get("d") or mat
+        labels.add(ship)
+        facts[(ship, ch, year, month, cat, desc)] += val / 1e6
+    wb.close()
+    payload = {
+        "shipTo": sorted(labels),
+        "facts": [[s, c, y, m, cat, sku, round(v, 6)]
+                  for (s, c, y, m, cat, sku), v in facts.items()]
+    }
+    with open(SHIP_OUT, "w", encoding="utf-8", newline="") as fp:
+        json.dump(payload, fp, ensure_ascii=False, separators=(",", ":"))
+        fp.write("\n")
+    print("SAVED", SHIP_OUT, "ship-to:", len(labels), "facts:", len(facts))
 
 
 def _load_dashboard_calc():
@@ -400,10 +439,13 @@ def merge_kpi(d):
     plan = _load_plan_sale()
 
     last_closed = max([m for m in mon if (mon[m]["act"] or 0) > 0], default=8)
-    act_sum = sum(mon[m]["act"] for m in range(1, last_closed + 1))
+    # Actual/LY always follow refreshed Raw data (including the latest appended rows).
+    raw_mt_actual = {m: round(d["MT"].get("monthly", {}).get(str(m), 0), 2) for m in range(1, 13)}
+    raw_mt_ly = {m: round(d["MT"].get("history", {}).get(str(FISCAL_YEAR - 1), {}).get(str(m), 0), 2) for m in range(1, 13)}
+    act_sum = sum(raw_mt_actual[m] for m in range(1, last_closed + 1))
     # LE mix: closed months use actual, the latest open month uses its LE forecast
-    le_mix = sum(mon[m]["act"] for m in range(1, last_closed)) + mon[last_closed]["le"]
-    ly_sum = sum(mon[m]["ly"] for m in range(1, last_closed + 1))
+    le_mix = sum(raw_mt_actual[m] for m in range(1, last_closed)) + mon[last_closed]["le"]
+    ly_sum = sum(raw_mt_ly[m] for m in range(1, last_closed + 1))
     aop_sum = sum(mon[m]["aop"] for m in range(1, last_closed + 1))
 
     mt = d["MT"]
@@ -411,12 +453,12 @@ def merge_kpi(d):
     mt["le_ytd_mix"] = round(le_mix, 2)
     mt["ly_ytd"] = round(ly_sum, 2)
     mt["aop_ytd"] = round(aop_sum, 2)
-    mt["s_actual"] = {str(m): round(mon[m]["act"], 2) for m in range(1, 13)}
+    mt["s_actual"] = {str(m): raw_mt_actual[m] for m in range(1, 13)}
     # MT LE/AOP from Data Plan Sale (Makro + Lotus'), matching Dashboard Calc.
     mt["s_le"] = {str(m): round(plan.get("MAKRO", {}).get("LE", {}).get(m, 0)
                               + plan.get("LOTUS'", {}).get("LE", {}).get(m, 0), 2)
                    for m in range(1, 13)}
-    mt["s_ly"] = {str(m): round(mon[m]["ly"], 2) for m in range(1, 13)}
+    mt["s_ly"] = {str(m): raw_mt_ly[m] for m in range(1, 13)}
     mt["s_aop"] = {str(m): round(plan.get("MAKRO", {}).get("AOP", {}).get(m, 0)
                                + plan.get("LOTUS'", {}).get("AOP", {}).get(m, 0), 2)
                     for m in range(1, 13)}
@@ -427,8 +469,9 @@ def merge_kpi(d):
         ch = d.get(channel_id)
         if ch is None:
             continue
-        ch["s_actual"] = {str(m): round(series[m]["act"], 2) for m in range(1, 13)}
-        ch["s_ly"] = {str(m): round(series[m]["ly"], 2) for m in range(1, 13)}
+        ch["s_actual"] = {str(m): round(ch.get("monthly", {}).get(str(m), 0), 2) for m in range(1, 13)}
+        hist25 = ch.get("history", {}).get(str(FISCAL_YEAR - 1), {})
+        ch["s_ly"] = {str(m): round(hist25.get(str(m), 0), 2) for m in range(1, 13)}
         ch["s_le"] = {str(m): round(plan.get(channel_id, {}).get("LE", {}).get(m, 0), 2)
                        for m in range(1, 13)}
         ch["s_aop"] = {str(m): round(plan.get(channel_id, {}).get("AOP", {}).get(m, 0), 2)
@@ -497,6 +540,7 @@ if __name__ == "__main__":
     with open(OUT, "w", encoding="utf-8", newline="") as fp:
         fp.write(text)
         fp.write("\n")
+    write_shipto_data()
     mt = data["MT"]
     print("SAVED", OUT)
     print("last_closed month:", last_closed)

@@ -1,5 +1,5 @@
 ﻿const MONTHS=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
-let D=null,charts={},cur="MT",selChans=["MAKRO","LOTUS'"],selFrom=1,selTo=8,lastClosed=8,fy=2026;
+let D=null,S=null,shipCache=null,selShips=[],charts={},cur="MT",selChans=["MAKRO","LOTUS'"],selFrom=1,selTo=8,lastClosed=8,fy=2026;
 var viewYear=fy; // Year filter state; defaults to fy (2026) so the first-open view is unchanged.
 function num(v){return (v==null||isNaN(v))?0:Number(v);}
 function fmt(v){return (v==null||isNaN(v))?"-":Number(v).toLocaleString("en-US",{minimumFractionDigits:1,maximumFractionDigits:1});}
@@ -19,7 +19,7 @@ function dark(h){var n=parseInt(h.slice(1),16);return "rgb("+Math.max(0,((n>>16)
 var activeCat=null,activeSku=null,kpiPick=null;
 var catSort=null,skuSort=null; // {col:'ly'|'actual'|'growth'|'pct'|'contrib', dir:'desc'|'asc'} or null
 var channelExportRows=[];
-function exportContext(){return {Channel:label(),From:MONTHS[selFrom-1],To:MONTHS[selTo-1],Year:fy,Category:activeCat||"All",SKU:activeSku||"All",LatestSales:salesDateTxt()};}
+function exportContext(){return {Channel:label(),ShipTo:selShips.length?selShips.join(" | "):"All",From:MONTHS[selFrom-1],To:MONTHS[selTo-1],Year:viewYear,Category:activeCat||"All",SKU:activeSku||"All",LatestSales:salesDateTxt()};}
 function exportCell(v){var s=String(v==null?"":v).trim().replace(/\s*[▼▲]\s*/g,"").replace(/, sorted.*$/i,"");if(s==="—"||s==="-")return "";var p=s.match(/^([+-]?[\d,]+(?:\.\d+)?)%$/);if(p)return Number(p[1].replace(/,/g,""))/100;var n=s.match(/^([+-]?[\d,]+(?:\.\d+)?)$/);if(n)return Number(n[1].replace(/,/g,""));return s;}
 function tableExportRows(id){var t=document.getElementById(id),out=[];if(!t)return out;Array.prototype.forEach.call(t.querySelectorAll("tr"),function(tr){var row=[];Array.prototype.forEach.call(tr.querySelectorAll("th,td"),function(td){row.push(exportCell(td.textContent));});out.push(row);});return out;}
 function chartExportRows(id){var ch=charts[id];if(!ch)return [];var ds=ch.data.datasets||[],head=["Period"].concat(ds.map(function(x){return x.label||"Value";})),out=[head];(ch.data.labels||[]).forEach(function(lb,i){if(lb==="")return;var row=[lb];ds.forEach(function(x){var v=x.data&&x.data[i];row.push(v==null?"":num(v));});out.push(row);});return out;}
@@ -60,10 +60,11 @@ var valueLabelPlugin={id:"valueLabelPlugin",afterDatasetsDraw:function(chart){va
 if(typeof Chart!=="undefined"){try{Chart.register(valueLabelPlugin);}catch(e){}}
 var piePlugin={id:"piePlugin",afterDraw:function(chart){var ctx=chart.ctx;var o=(chart.options.plugins||{}).pieText;if(!o||o.hide)return;var a=chart.chartArea,cx=(a.left+a.right)/2,cy=(a.top+a.bottom)/2;
  if(o.label!==undefined){ctx.save();ctx.textAlign="center";ctx.textBaseline="middle";ctx.fillStyle="#0f172a";ctx.font="700 22px Arial,sans-serif";ctx.fillText(String(o.label),cx,cy);ctx.restore();}}};
-function sel(){return D[cur];}
+function sourceData(){return selShips.length?shipCache:D;}
+function sel(){return sourceData()[cur];}
 function selAll(){
-  var out={label:selChans.map(function(i){return D[i]&&D[i].label||i;}).join(" + "),monthly:{},history:{},category:{items:[]},annual:{},s_actual:{},s_le:{},s_ly:{},s_aop:{},monthly_by_cat:{},history_by_cat:{},annual_by_cat:{},monthly_by_sku:{},history_by_sku:{},annual_by_sku:{},_planningOK:true};
-  selChans.forEach(function(id){var c=D[id];if(!c)return;
+  var SD=sourceData(),out={label:selChans.map(function(i){return SD[i]&&SD[i].label||i;}).join(" + "),monthly:{},history:{},category:{items:[]},annual:{},s_actual:{},s_le:{},s_ly:{},s_aop:{},monthly_by_cat:{},history_by_cat:{},annual_by_cat:{},monthly_by_sku:{},history_by_sku:{},annual_by_sku:{},_planningOK:!selShips.length};
+  selChans.forEach(function(id){var c=SD[id];if(!c)return;
     if(!hasS(c))out._planningOK=false;
     for(var m=1;m<=12;m++){out.monthly[String(m)]=num(out.monthly[String(m)])+num(c.monthly&&c.monthly[String(m)]||0);
       if(c.s_actual)out.s_actual[String(m)]=num(out.s_actual[String(m)])+num(c.s_actual[String(m)]||0);
@@ -79,19 +80,25 @@ function selAll(){
     var mbs=c.monthly_by_sku||{},hbs=c.history_by_sku||{},abs=c.annual_by_sku||{};mergeFocusMaps(out.monthly_by_sku,out.history_by_sku,out.annual_by_sku,mbs,hbs,abs);
   });
   out.total_mb=0;for(var m=1;m<=12;m++)out.total_mb+=num(out.monthly[String(m)]||0);
-  var tsa=[],tsbc={};selChans.forEach(function(id){var cs=D[id];if(!cs)return;if(cs.top_sku_all)tsa=tsa.concat(cs.top_sku_all);var t=cs.top_sku_by_cat||{};Object.keys(t).forEach(function(cat){tsbc[cat]=(tsbc[cat]||[]).concat(t[cat]);});});out.top_sku_all=mergeSkuList(tsa);Object.keys(tsbc).forEach(function(cat){tsbc[cat]=mergeSkuList(tsbc[cat]);});out.top_sku_by_cat=tsbc;
+  var tsa=[],tsbc={};selChans.forEach(function(id){var cs=SD[id];if(!cs)return;if(cs.top_sku_all)tsa=tsa.concat(cs.top_sku_all);var t=cs.top_sku_by_cat||{};Object.keys(t).forEach(function(cat){tsbc[cat]=(tsbc[cat]||[]).concat(t[cat]);});});out.top_sku_all=mergeSkuList(tsa);Object.keys(tsbc).forEach(function(cat){tsbc[cat]=mergeSkuList(tsbc[cat]);});out.top_sku_by_cat=tsbc;
   return out;
 }
 function mergeFocusMaps(outM,outH,outA,srcM,srcH,srcA){Object.keys(srcM).forEach(function(key){outM[key]=outM[key]||{actual:{},ly:{}};if(srcM[key].cat&&!outM[key].cat)outM[key].cat=srcM[key].cat;for(var m=1;m<=12;m++){outM[key].actual[String(m)]=num(outM[key].actual[String(m)])+num((srcM[key].actual||{})[String(m)]);outM[key].ly[String(m)]=num(outM[key].ly[String(m)])+num((srcM[key].ly||{})[String(m)]);}});Object.keys(srcH).forEach(function(key){outH[key]=outH[key]||{};Object.keys(srcH[key]||{}).forEach(function(y){outH[key][y]=outH[key][y]||{};for(var m=1;m<=12;m++)outH[key][y][String(m)]=num(outH[key][y][String(m)])+num(srcH[key][y][String(m)]);});});Object.keys(srcA).forEach(function(key){outA[key]=outA[key]||{};Object.keys(srcA[key]||{}).forEach(function(y){outA[key][y]=num(outA[key][y])+num(srcA[key][y]);});});}
 function mergeSkuList(list){var map={};(list||[]).forEach(function(s){var k=s.name;if(!map[k])map[k]={name:s.name,mb:0,cat:s.cat||""};map[k].mb+=num(s.mb);});return Object.keys(map).map(function(k){return map[k];}).sort(function(a,b){return b.mb-a.mb;});}
-function label(){var ids=(D&&D._channels||[]).filter(function(ch){return ch.id!=="MT";}).map(function(ch){return ch.id;});if(ids.length&&selChans&&selChans.length===ids.length)return "All Channel";if(selChans&&selChans.length>1)return selChans.map(function(i){return D[i]&&D[i].label||i;}).join(" + ");return D[cur]?D[cur].label:cur;}
+function label(){var SD=sourceData(),ids=(D&&D._channels||[]).filter(function(ch){return ch.id!=="MT";}).map(function(ch){return ch.id;}),base;if(ids.length&&selChans&&selChans.length===ids.length)base="All Channel";else if(selChans&&selChans.length>1)base=selChans.map(function(i){return SD[i]&&SD[i].label||i;}).join(" + ");else base=SD[cur]?SD[cur].label:cur;return base+(selShips.length?(" | Ship-to: "+(selShips.length===1?selShips[0]:selShips.length+" selected")):"");}
 function C(){
   if(selChans&&selChans.length>1)return selAll();
   return sel();
 }
+function buildShipCache(){
+  shipCache={};if(!selShips.length)return;var wanted={};selShips.forEach(function(x){wanted[x]=1;});
+  function ch(id){if(!shipCache[id])shipCache[id]={label:id,monthly:{},history:{},annual:{},category:{items:[]},monthly_by_cat:{},history_by_cat:{},annual_by_cat:{},monthly_by_sku:{},history_by_sku:{},annual_by_sku:{},top_sku_all:[],top_sku_by_cat:{},_planningOK:false};return shipCache[id];}
+  (S.facts||[]).forEach(function(r){if(!wanted[r[0]])return;var c=ch(r[1]),y=String(r[2]),m=String(r[3]),cat=r[4],sku=r[5],v=num(r[6]);c.history[y]=c.history[y]||{};c.history[y][m]=num(c.history[y][m])+v;c.annual[y]=num(c.annual[y])+v;c.history_by_cat[cat]=c.history_by_cat[cat]||{};c.history_by_cat[cat][y]=c.history_by_cat[cat][y]||{};c.history_by_cat[cat][y][m]=num(c.history_by_cat[cat][y][m])+v;c.annual_by_cat[cat]=c.annual_by_cat[cat]||{};c.annual_by_cat[cat][y]=num(c.annual_by_cat[cat][y])+v;c.history_by_sku[sku]=c.history_by_sku[sku]||{};c.history_by_sku[sku][y]=c.history_by_sku[sku][y]||{};c.history_by_sku[sku][y][m]=num(c.history_by_sku[sku][y][m])+v;c.annual_by_sku[sku]=c.annual_by_sku[sku]||{};c.annual_by_sku[sku][y]=num(c.annual_by_sku[sku][y])+v;if(+y===fy){c.monthly[m]=num(c.monthly[m])+v;c.monthly_by_cat[cat]=c.monthly_by_cat[cat]||{actual:{},ly:{}};c.monthly_by_cat[cat].actual[m]=num(c.monthly_by_cat[cat].actual[m])+v;c.monthly_by_sku[sku]=c.monthly_by_sku[sku]||{cat:cat,actual:{},ly:{}};c.monthly_by_sku[sku].actual[m]=num(c.monthly_by_sku[sku].actual[m])+v;}});
+  Object.keys(shipCache).forEach(function(id){var c=shipCache[id],cats={},skus={};c.s_actual=c.monthly;c.s_ly=c.history[String(fy-1)]||{};Object.keys(c.history_by_cat).forEach(function(cat){var h=c.history_by_cat[cat];c.monthly_by_cat[cat]=c.monthly_by_cat[cat]||{actual:{},ly:{}};c.monthly_by_cat[cat].ly=h[String(fy-1)]||{};cats[cat]=num(c.annual_by_cat[cat]&&c.annual_by_cat[cat][String(fy)]);});Object.keys(c.history_by_sku).forEach(function(sku){var h=c.history_by_sku[sku];c.monthly_by_sku[sku]=c.monthly_by_sku[sku]||{cat:"",actual:{},ly:{}};c.monthly_by_sku[sku].ly=h[String(fy-1)]||{};skus[sku]=num(c.annual_by_sku[sku]&&c.annual_by_sku[sku][String(fy)]);});c.total_mb=Object.keys(c.monthly).reduce(function(a,m){return a+num(c.monthly[m]);},0);c.category.items=Object.keys(cats).map(function(k){return {name:k,mb:cats[k],pct:c.total_mb?cats[k]/c.total_mb*100:0};}).sort(function(a,b){return b.mb-a.mb;});c.category.total_mb=c.total_mb;c.top_sku_all=Object.keys(skus).map(function(k){var cat=c.monthly_by_sku[k].cat;return {name:k,mb:skus[k],cat:cat};}).sort(function(a,b){return b.mb-a.mb;});c.top_sku_all.forEach(function(x){(c.top_sku_by_cat[x.cat]=c.top_sku_by_cat[x.cat]||[]).push(x);});});
+}
 function load(){
- fetch("data_channels.json?v="+Date.now()).then(r=>r.json()).then(function(data){
-   D=data;lastClosed=8;fy=2026;
+ Promise.all([fetch("data_channels.json?v="+Date.now()).then(r=>r.json()),fetch("shipto_data.json?v="+Date.now()).then(r=>r.json())]).then(function(res){
+   D=res[0];S=res[1];lastClosed=D._lastClosed||8;fy=2026;
    // channels
    var sc=document.getElementById("selChannel");sc.innerHTML="";
    var allChannelIds=(D._channels||[]).filter(function(ch){return ch.id!=="MT";}).map(function(ch){return ch.id;});
@@ -108,6 +115,8 @@ function load(){
      cb.onchange=function(){var x=selChans.indexOf(ch.id);if(cb.checked&&x<0)selChans.push(ch.id);else if(!cb.checked&&x>=0)selChans.splice(x,1);if(!selChans.length)selChans=[ch.id];scanChk();cur=selChans[0];activeCat=null;activeSku=null;kpiPick=null;renderAll();};
    });
    scanChk();cur=selChans[0];
+   var ss=document.getElementById("selShipTo");ss.innerHTML="";var ao=document.createElement("option");ao.value="";ao.textContent="All Ship-to party";ss.appendChild(ao);(S.shipTo||[]).forEach(function(x){var o=document.createElement("option");o.value=x;o.textContent=x;ss.appendChild(o);});
+   ss.onchange=function(){selShips=Array.prototype.filter.call(ss.options,function(o){return o.selected&&o.value;}).map(function(o){return o.value;});buildShipCache();activeCat=null;activeSku=null;kpiPick=null;renderAll();};
    // Year filter: list every year present in the data (actual/LY history and annual),
    // default to the current fiscal year (fy) so the first-open view is unchanged.
    var sy=document.getElementById("selYear");sy.innerHTML="";
@@ -346,6 +355,7 @@ function chanGrowth(d){
 }
 function drawChannelSummary(){
   var el=document.getElementById("chTable");if(!el)return;
+  var SD=sourceData();
   setV("tgChRange",MONTHS[selFrom-1]+"\u2013"+MONTHS[selTo-1]+" "+viewYear);
   var rows=[],tot=0;
   var focInfo=currentFocus(C()),focusName=focInfo&&focInfo.name;
@@ -354,12 +364,12 @@ function drawChannelSummary(){
   (selChans||[]).forEach(function(channelId){
     var ch=channelDefs[channelId]||{id:channelId,label:channelId};
     if(ch.id==="MT")return;
-    var d=D[ch.id];if(!d)return;
+    var d=SD[ch.id];if(!d)return;
     var g;
     if(focusName){
-      var cm=activeSku?(D[ch.id].history_by_sku&&D[ch.id].history_by_sku[activeSku]):(D[ch.id].history_by_cat&&D[ch.id].history_by_cat[activeCat]);
+      var cm=activeSku?(d.history_by_sku&&d.history_by_sku[activeSku]):(d.history_by_cat&&d.history_by_cat[activeCat]);
       var a=0,ly=0;if(cm){var ca=cm[String(viewYear)]||{},cl=cm[String(viewYear-1)]||{};for(var m=num(selFrom);m<=num(selTo);m++){a+=num(ca[String(m)]||0);ly+=num(cl[String(m)]||0);}}
-      if(!a&&!cm){var m2=activeSku?(D[ch.id].monthly_by_sku&&D[ch.id].monthly_by_sku[activeSku]):(D[ch.id].monthly_by_cat&&D[ch.id].monthly_by_cat[activeCat]);if(m2){for(var m=num(selFrom);m<=num(selTo);m++){a+=num(m2.actual&&m2.actual[String(m)]||0);ly+=num(m2.ly&&m2.ly[String(m)]||0);}}}
+      if(!a&&!cm){var m2=activeSku?(d.monthly_by_sku&&d.monthly_by_sku[activeSku]):(d.monthly_by_cat&&d.monthly_by_cat[activeCat]);if(m2){for(var m=num(selFrom);m<=num(selTo);m++){a+=num(m2.actual&&m2.actual[String(m)]||0);ly+=num(m2.ly&&m2.ly[String(m)]||0);}}}
       g={a:a,ly:ly,g:ly>0?(a-ly)/ly*100:(a>0?null:null)};
     } else { g=chanGrowth(d); }
     rows.push({id:ch.id,label:(ch.id==="LOTUS'"?"Lotus's":(d.label||ch.label)),a:g.a,ly:g.ly,g:g.g});

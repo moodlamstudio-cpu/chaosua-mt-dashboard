@@ -119,7 +119,7 @@
 </header>
 <div class="wrap">
   <div class="controls">
-    <label>Channel</label><div id="selChannel" class="chans"></div> <label>From</label><select id="selFrom"></select> <label>To</label><select id="selTo"></select> <label>Year</label><select id="selYear"></select>
+    <label>Channel</label><div id="selChannel" class="chans"></div> <label>Ship-to party</label><select id="selShipTo" multiple size="4" style="min-width:280px;max-width:420px"></select> <label>From</label><select id="selFrom"></select> <label>To</label><select id="selTo"></select> <label>Year</label><select id="selYear"></select>
   </div>
   <div class="kpis">
     <div class="kpi"><div class="lbl">Actual <span id="lblAct" style="font-weight:400;color:#64748b"></span></div><div class="val" id="kACT"><small>MB</small></div><div class="cmp">Latest sales as of <b id="kACTdate">-</b></div></div>
@@ -141,7 +141,7 @@
 </div>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/pptxgenjs@3.12.0/dist/pptxgen.bundle.js"></script>
-<script src="app.js?v=20260814v05"></script>
+<script src="app.js?v=20260817v1"></script>
 <script>
 /* ---- Client-side password gate (SHA-256 hash comparison; plaintext is NOT stored) ---- */
 (function(){
