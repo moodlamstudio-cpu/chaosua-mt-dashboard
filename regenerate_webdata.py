@@ -346,6 +346,20 @@ def write_shipto_data():
     ws = wb["Raw data"]
     facts = defaultdict(float)
     labels = set()
+    def _day_of(date_val):
+        # Raw data date column (index 3) is usually DD/MM/YYYY text or an
+        # Excel serial. Extract just the day-of-month (fact[7]).
+        import datetime as _dt
+        if isinstance(date_val, int) and date_val > 10000:
+            return (_dt.date(1899, 12, 30) + _dt.timedelta(days=int(date_val))).day
+        if isinstance(date_val, str):
+            try:
+                dd = int(date_val.strip().split("/")[0])
+                return dd if 1 <= dd <= 31 else None
+            except Exception:
+                return None
+        return None
+
     for i, r in enumerate(ws.iter_rows(values_only=True)):
         if i == 0:
             continue
@@ -359,18 +373,21 @@ def write_shipto_data():
         ship = str(r[6] or "").strip()
         if not ship:
             continue
+        day = _day_of(r[3])
+        if day is None:
+            continue
         ch = norm_channel(r[5])
         mat = str(r[7])
         info = pm.get(mat, {}) or {}
         cat = info.get("c1") or info.get("g") or "Other"
         desc = info.get("d") or mat
         labels.add(ship)
-        facts[(ship, ch, year, month, cat, desc)] += val / 1e6
+        facts[(ship, ch, year, month, cat, desc, day)] += val / 1e6
     wb.close()
     payload = {
         "shipTo": sorted(labels),
-        "facts": [[s, c, y, m, cat, sku, round(v, 6)]
-                  for (s, c, y, m, cat, sku), v in facts.items()]
+        "facts": [[s, c, y, m, cat, sku, round(v, 6), dd]
+                  for (s, c, y, m, cat, sku, dd), v in facts.items()]
     }
     with open(SHIP_OUT, "w", encoding="utf-8", newline="") as fp:
         json.dump(payload, fp, ensure_ascii=False, separators=(",", ":"))
