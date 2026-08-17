@@ -65,6 +65,14 @@
   .perf-row{cursor:pointer;}.perf-row:hover td{background:#f8fafc;}
   .perf-row.growing td{background:#dcfce7;}.perf-row.growing:hover td{background:#bbf7d0;}
   .perf-row.selected td{box-shadow:inset 0 2px #0f172a,inset 0 -2px #0f172a;}
+  /* Ship-to linked filter rows */
+  #shipToTable tbody tr.st-row{cursor:pointer;transition:background .15s;}
+  #shipToTable tbody tr.st-row:hover td{background:#eef2ff;}
+  #shipToTable tbody tr.st-row:focus-visible{outline:2px solid #2563eb;outline-offset:-2px;}
+  #shipToTable tbody tr.st-row.shipto-selected td{background:#dbeafe;box-shadow:inset 0 2px #2563eb,inset 0 -2px #2563eb;font-weight:700;}
+  #shipToTable tbody tr.st-row.shipto-selected td:first-child{background:#dbeafe;}
+  .st-show{color:#2563eb;font-size:10px;margin-left:2px;}
+  .st-clear{white-space:nowrap;}
 
   .chgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(185px,1fr));gap:14px;}
   @media(min-width:1100px){.chgrid{grid-template-columns:repeat(5,1fr);}}
@@ -141,7 +149,7 @@
   <div class="card"><h3><span>Category Performance</span><span class="head-actions"><span class="tag" id="tgCatPerf">Total</span><button class="export-btn" type="button" onclick="exportSection('category_performance')">Export Excel</button></span></h3><div class="perf-scroll cat-perf-scroll"><table id="catPerfTable"></table></div></div>
   <div class="card"><h3><span>All SKU Performance</span><span class="head-actions"><span class="tag" id="tgSku">Total</span><button class="export-btn" type="button" onclick="exportSection('sku')">Export Excel</button></span></h3><div class="perf-scroll sku-scroll"><table id="skuTable"></table></div></div>
   <div class="card"><h3><span>Sales by Channel — <span id="tgChRange">Jan–Aug 2026</span> (MB)</span><span class="head-actions"><span class="tag">All MT · vs LY</span><button class="export-btn" type="button" onclick="exportSection('channel')">Export Excel</button></span></h3><div id="chTable"></div></div>
-  <div class="card"><h3><span>ยอดขายตาม Ship-to party (MB)</span><span class="head-actions"><span class="tag" id="tgShipTo">Total</span><button class="export-btn" type="button" onclick="exportSection('ship_to')">Export Excel</button></span></h3><div class="perf-scroll shipto-scroll"><table id="shipToTable"></table></div></div>
+  <div class="card"><h3><span>ยอดขายตาม Ship-to party (MB)</span><span class="head-actions"><span id="shiptoHeaderActions"></span><span class="tag" id="tgShipTo">Total</span><button class="export-btn" type="button" onclick="exportSection('ship_to')">Export Excel</button></span></h3><div class="perf-scroll shipto-scroll"><table id="shipToTable"></table></div></div>
 </div>
 <footer>CHAOSUA . MT Sales Dashboard . Source: Dashboard Pivot</footer>
 </div>

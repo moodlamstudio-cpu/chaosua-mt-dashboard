@@ -17,9 +17,10 @@ function salesDateTxt(){
 var CATCOLR=["#F2E9D8","#59718A","#2F6F6D","#E07A47","#D4A72C","#8FA68F","#C47C8A","#5B3A62"];
 function dark(h){var n=parseInt(h.slice(1),16);return "rgb("+Math.max(0,((n>>16)&255)-35)+","+Math.max(0,((n>>8)&255)-35)+","+Math.max(0,(n&255)-35)+")";}
 var activeCat=null,activeSku=null,kpiPick=null;
+var activeShipTo=null; // clicked Ship-to party linked filter: drives KPI/charts until re-clicked to clear
 var catSort=null,skuSort=null; // {col:'ly'|'actual'|'growth'|'pct'|'contrib', dir:'desc'|'asc'} or null
 var channelExportRows=[];
-function exportContext(){return {Channel:label(),From:MONTHS[selFrom-1],To:MONTHS[selTo-1],Year:viewYear,Category:activeCat||"All",SKU:activeSku||"All",LatestSales:salesDateTxt()};}
+function exportContext(){return {Channel:label(),From:MONTHS[selFrom-1],To:MONTHS[selTo-1],Year:viewYear,Category:activeCat||"All",SKU:activeSku||"All",ShipTo:activeShipTo||"All",LatestSales:salesDateTxt()};}
 function exportCell(v){var s=String(v==null?"":v).trim().replace(/\s*[▼▲]\s*/g,"").replace(/, sorted.*$/i,"");if(s==="—"||s==="-")return "";var p=s.match(/^([+-]?[\d,]+(?:\.\d+)?)%$/);if(p)return Number(p[1].replace(/,/g,""))/100;var n=s.match(/^([+-]?[\d,]+(?:\.\d+)?)$/);if(n)return Number(n[1].replace(/,/g,""));return s;}
 function tableExportRows(id){var t=document.getElementById(id),out=[];if(!t)return out;Array.prototype.forEach.call(t.querySelectorAll("tr"),function(tr){var row=[];Array.prototype.forEach.call(tr.querySelectorAll("th,td"),function(td){row.push(exportCell(td.textContent));});out.push(row);});return out;}
 function chartExportRows(id){var ch=charts[id];if(!ch)return [];var ds=ch.data.datasets||[],head=["Period"].concat(ds.map(function(x){return x.label||"Value";})),out=[head];(ch.data.labels||[]).forEach(function(lb,i){if(lb==="")return;var row=[lb];ds.forEach(function(x){var v=x.data&&x.data[i];row.push(v==null?"":num(v));});out.push(row);});return out;}
@@ -90,9 +91,96 @@ function mergeFocusMaps(outM,outH,outA,srcM,srcH,srcA){Object.keys(srcM).forEach
 function mergeSkuList(list){var map={};(list||[]).forEach(function(s){var k=s.name;if(!map[k])map[k]={name:s.name,mb:0,cat:s.cat||""};map[k].mb+=num(s.mb);});return Object.keys(map).map(function(k){return map[k];}).sort(function(a,b){return b.mb-a.mb;});}
 function label(){var SD=sourceData(),ids=(D&&D._channels||[]).filter(function(ch){return ch.id!=="MT";}).map(function(ch){return ch.id;}),base;if(ids.length&&selChans&&selChans.length===ids.length)base="All Channel";else if(selChans&&selChans.length>1)base=selChans.map(function(i){return SD[i]&&SD[i].label||i;}).join(" + ");else base=SD[cur]?SD[cur].label:cur;return base;}
 function C(){
+  if(activeShipTo)return shipToChannel(activeShipTo);
   if(selChans&&selChans.length>1)return selAll();
   return sel();
 }
+// ---- Ship-to party linked filter -------------------------------
+// When a Ship-to row is clicked, KPI, charts, Category, SKU and the Sales-by-
+// Channel cards all focus on that single location. The Ship-to TABLE itself is
+// deliberately NOT reduced to the selected row (it is the filter control, and
+// would otherwise collapse into a meaningless self-filter loop); only the
+// clicked row is highlighted, and clicking it again clears the filter. Every
+// figure is derived from the SAME facts and filters used to build the table, so
+// the selected row Total reconciles with the Actual KPI by construction.
+function shipToBasisSet(){ // channels currently in scope as a lookup object
+  var s={};(selChans||[]).forEach(function(id){s[id]=1;});return s;
+}
+function shipToFactsPass(r){ // fact [shipTo, chan, year, month, cat, sku, val] under the CURRENT table filters
+  if(!shipToBasisSet()[r[1]])return false;
+  if(String(r[2])!==String(viewYear))return false;
+  var m=Number(r[3]);if(m<num(selFrom)||m>num(selTo))return false;
+  if(activeCat&&r[4]!==activeCat)return false;
+  if(activeSku&&r[5]!==activeSku)return false;
+  return true;
+}
+function shipToAggFor(name,year,respectDrill){ // aggregate one Ship-to into a channel-like series object
+  year=(year==null?viewYear:Number(year));
+  var byChan={},selSet=shipToBasisSet(),from=num(selFrom),to=num(selTo);
+  var months={},perCat={},perSku={},total=0;
+  (S.facts||[]).forEach(function(r){
+    if(r[0]!==name)return;
+    if(!selSet[r[1]])return;
+    if(String(r[2])!==String(year))return;
+    var m=Number(r[3]);if(m<from||m>to)return;
+    if(respectDrill){if(activeCat&&r[4]!==activeCat)return;if(activeSku&&r[5]!==activeSku)return;}
+    var v=num(r[6]);months[m]=num(months[m])+v;total+=v;
+    perCat[r[4]]=num(perCat[r[4]]||0)+v;
+    perSku[r[5]]=num(perSku[r[5]]||0)+v;
+    byChan[r[1]]=num(byChan[r[1]]||0)+v;
+  });
+  return {months:months,total:total,perCat:perCat,perSku:perSku,byChan:byChan};
+}
+function shipToChannel(name){
+  var c={label:name,_planningOK:false,shipTo:name};
+  var act=shipToAggFor(name,viewYear,true);   // respects active cat/sku => reconciles with the table row
+  var ly=shipToAggFor(name,viewYear-1,true);  // same basis, prior year
+  var hist={},annual={};
+  // Actual series for the current view year (capped at the closed month like the KPI).
+  var actualSeries={},effClosed=isHistoricalYear()?12:lastClosed;
+  for(var m=1;m<=12;m++){if(m<=effClosed)actualSeries[String(m)]=num(act.months[String(m)]);}
+  c.monthly=actualSeries;c.s_actual=actualSeries;c.s_le={};c.s_ly=ly.months||{};c.s_aop={};
+  c.total_mb=act.total;
+  // Per-year annual (sum over the visible month range) for the annual chart.
+  (S.facts||[]).forEach(function(r){
+    if(r[0]!==name||!shipToBasisSet()[r[1]])return;
+    var yy=String(r[2]),mm=Number(r[3]);if(mm<num(selFrom)||mm>num(selTo))return;
+    annual[yy]=num(annual[yy]||0)+num(r[6]);
+  });
+  c.annual=annual;
+  hist[String(viewYear)]=actualSeries;
+  if(ly.total>0||Object.keys(ly.months).length)hist[String(viewYear-1)]=ly.months;
+  c.history=hist;
+  // Category / SKU splits (its own composition), used by Category & SKU tables.
+  c.category={items:objectToItems(act.perCat)};
+  var cm=breakdownMaps(name);
+  c.monthly_by_cat=cm.cat.cur;c.history_by_cat=cm.cat.hist;c.annual_by_cat=cm.cat.ann;
+  c.monthly_by_sku=cm.sku.cur;c.history_by_sku=cm.sku.hist;c.annual_by_sku=cm.sku.ann;
+  return c;
+}
+function objectToItems(o){var it=[];Object.keys(o||{}).forEach(function(k){it.push({name:k,mb:num(o[k]),pct:0});});var t=0;it.forEach(function(x){t+=x.mb;});it.forEach(function(x){x.pct=t?x.mb/t*100:0;});return it;}
+// Build the Category and SKU breakdown maps for one Ship-to from facts in ONE pass.
+// cur  = {key:{actual:{m:val},ly:{m:val},cat:catName}}  (viewYear / viewYear-1 per month)
+// hist = {key:{year:{m:val}}}  (all selected-view years, capped by the visible month range)
+// ann  = {key:{year:val}}
+function breakdownMaps(name){
+  var y1=String(viewYear),y0=String(viewYear-1);
+  var catCur={},catHist={},catAnn={},skuCur={},skuHist={},skuAnn={};
+  var from=num(selFrom),to=num(selTo),selSet=shipToBasisSet();
+  function bucket(c,histc,annc,key,y,m,v){var yo=histc[key];if(!yo)yo=histc[key]={};if(!yo[y])yo[y]={};yo[y][String(m)]=num(yo[y][String(m)]||0)+v;var ac=annc[key];if(!ac)ac=annc[key]={};ac[y]=num(ac[y]||0)+v;var cc=c[key];if(!cc)cc=c[key]={actual:{},ly:{}};var kk=(y===y1)?"actual":(y===y0?"ly":null);if(kk)cc[kk][String(m)]=num(cc[kk][String(m)]||0)+v;}
+  (S.facts||[]).forEach(function(r){
+    if(r[0]!==name||!selSet[r[1]])return;
+    var y=String(r[2]);if(y!==y1&&y!==y0)return;
+    var m=Number(r[3]);if(m<from||m>to)return;
+    if(activeCat&&r[4]!==activeCat)return;
+    if(activeSku&&r[5]!==activeSku)return;
+    var v=num(r[6]);
+    if(!catCur[r[4]])catCur[r[4]]={actual:{},ly:{},cat:r[4]};bucket(catCur,catHist,catAnn,r[4],y,m,v);
+    if(!skuCur[r[5]])skuCur[r[5]]={actual:{},ly:{},cat:r[4]};bucket(skuCur,skuHist,skuAnn,r[5],y,m,v);
+  });
+  return {cat:{cur:catCur,hist:catHist,ann:catAnn},sku:{cur:skuCur,hist:skuHist,ann:skuAnn}};
+}
+function shipToLabel(){return activeShipTo?("Ship-to \u2022 "+(activeShipTo||"")):label();}
 
 function load(){
  Promise.all([fetch("data_channels.json?v="+Date.now()).then(r=>r.json()),fetch("shipto_data.json?v="+Date.now()).then(r=>r.json())]).then(function(res){
@@ -149,7 +237,7 @@ function actualFocusSeries(c,name,isSku,y){y=Number(y==null?viewYear:y);var s=St
 function lyFocusSeries(c,name,isSku,y){y=Number(y==null?viewYear:y);var s=String(y-1),map=isSku?(c.history_by_sku||c.monthly_by_sku):(c.history_by_cat||c.monthly_by_cat);if(map&&map[name]&&map[name][s])return map[name][s];if(map&&map[name]&&map[name].ly)return map[name].ly;return {};}
 function renderAll(){
   try{
-    var c=C();var __foc__=currentFocus(c);var __fn=__foc__&&__foc__.name?(" "+String.fromCharCode(8226)+" "+__foc__.name):"";setV("tgY",label()+__fn);setV("tgM",label()+__fn);setV("tgTbl",label()+__fn);setV("tgCat",activeCat?("Category "+String.fromCharCode(8226)+" "+activeCat):label());setV("tgSku",label()+__fn);
+    var c=C();var __foc__=currentFocus(c);var __fn=__foc__&&__foc__.name?(" "+String.fromCharCode(8226)+" "+__foc__.name):"";setV("tgY",shipToLabel()+__fn);setV("tgM",shipToLabel()+__fn);setV("tgTbl",shipToLabel()+__fn);setV("tgCat",activeCat?("Category "+String.fromCharCode(8226)+" "+activeCat):shipToLabel());setV("tgSku",shipToLabel()+__fn);
     var ok=hasS(c);
     var rangeTxt=MONTHS[selFrom-1]+"-"+MONTHS[selTo-1];
     var histYear2=isHistoricalYear(),effClosed=histYear2?12:lastClosed,showPlan=false;
@@ -193,12 +281,12 @@ function pickKpi(type,value){if(type==="year"){viewYear=+value;var syD=document.
 function applyKpiPick(){var c=C(),focus=currentFocus(c);if(kpiPick.type==="year"){var y=String(kpiPick.value),annual=(focus&&focus.annual)||c.annual||{},prev=String(+y-1);setV("lblAct",y);setT("kACT",fmt(annual[y])+' <small>MB</small>');setT("kACTuntil","Full year / YTD");setV("lblLE",y);setT("kLE","\u2014");setT("kGap","\u2014");setV("lblLY",prev);setT("kLY",annual[prev]!=null?fmt(annual[prev])+' <small>MB</small>':"\u2014");setT("kLYcmp","Previous year");setV("lblAOP",y);setT("kAOP","\u2014");setT("kAOPcmp","No annual AOP");return;}
  var m=kpiPick.type==="yearMonth"?+kpiPick.month:+kpiPick.value,y=kpiPick.type==="yearMonth"?+kpiPick.year:fy,history=(focus&&focus.history)||c.history||{},actual=num(history[String(y)]&&history[String(y)][String(m)]),ly=history[String(y-1)]?num(history[String(y-1)][String(m)]):null,current=(y===fy),le=(!focus&&current&&hasS(c))?(m<lastClosed?actual:sv(c,"s_le",m)):null,aop=(!focus&&current&&hasS(c))?sv(c,"s_aop",m):null;["lblAct","lblLE","lblLY","lblAOP"].forEach(function(id){setV(id,MONTHS[m-1]+" "+y);});setT("kACT",fmt(actual)+' <small>MB</small>');setT("kACTuntil",MONTHS[m-1]+" "+y);setT("kLE",le==null?"\u2014":fmt(le)+' <small>MB</small>');setT("kGap",le==null?"\u2014":fmt(Math.max(0,le-actual))+" MB");setT("kLY",ly==null?"\u2014":fmt(ly)+' <small>MB</small>');setT("kLYcmp",ly==null?"No LY data":"Monthly LY "+(y-1));if(aop){var aopDiff=le-aop,aopP=aopDiff/aop*100;setT("kAOP",fmt(aop)+' <small>MB</small>');setT("kAOPgap",(aopDiff>=0?"+":"-")+Math.abs(aopDiff).toFixed(1)+" MB ("+(aopDiff>=0?"+":"-")+Math.abs(aopP).toFixed(1)+"%)");document.getElementById("kAOPgap").className=aopDiff>=0?"up":"down";setT("kAOPpc","");setT("kAOPcmp","Monthly LE vs AOP");}else{setT("kAOP","\u2014");setT("kAOPgap","");setT("kAOPpc","");setT("kAOPcmp","No AOP data");}}
 
-function drawAnnual(){destroy("cAnnual");var c=C(),focus=currentFocus(c),annual=(focus&&focus.annual)||c.annual||{},history=(focus&&focus.history)||c.history||{},years=Object.keys(c.annual||annual).sort(),month=kpiPick&&(kpiPick.type==="month"?+kpiPick.value:(kpiPick.type==="yearMonth"?+kpiPick.month:null)),rangeLabel=MONTHS[selFrom-1]+"\u2013"+MONTHS[selTo-1],vals=years.map(function(y){if(month)return num(history[y]&&history[y][String(month)]);var total=0,hy=history[y]||{};for(var m=selFrom;m<=selTo;m++)total+=num(hy[String(m)]);return total;}),selectedYear=kpiPick&&(kpiPick.type==="year"?String(kpiPick.value):(kpiPick.type==="yearMonth"?String(kpiPick.year):null)),colors=years.map(function(y){return selectedYear===y?"#000000":"#525252";}),base=focus?(label()+" \u2022 "+focus.name):label();setV("tgY",base+(month?" \u2022 "+MONTHS[month-1]:" \u2022 "+rangeLabel));charts["cAnnual"]=new Chart(document.getElementById("cAnnual"),{type:"bar",data:{labels:years,datasets:[{label:"Actual",data:vals,backgroundColor:colors,hoverBackgroundColor:"#000000",borderRadius:6,barPercentage:.55}]},
+function drawAnnual(){destroy("cAnnual");var c=C(),focus=currentFocus(c),annual=(focus&&focus.annual)||c.annual||{},history=(focus&&focus.history)||c.history||{},years=Object.keys(c.annual||annual).sort(),month=kpiPick&&(kpiPick.type==="month"?+kpiPick.value:(kpiPick.type==="yearMonth"?+kpiPick.month:null)),rangeLabel=MONTHS[selFrom-1]+"\u2013"+MONTHS[selTo-1],vals=years.map(function(y){if(month)return num(history[y]&&history[y][String(month)]);var total=0,hy=history[y]||{};for(var m=selFrom;m<=selTo;m++)total+=num(hy[String(m)]);return total;}),selectedYear=kpiPick&&(kpiPick.type==="year"?String(kpiPick.value):(kpiPick.type==="yearMonth"?String(kpiPick.year):null)),colors=years.map(function(y){return selectedYear===y?"#000000":"#525252";}),base=focus?(shipToLabel()+" \u2022 "+focus.name):shipToLabel();setV("tgY",base+(month?" \u2022 "+MONTHS[month-1]:" \u2022 "+rangeLabel));charts["cAnnual"]=new Chart(document.getElementById("cAnnual"),{type:"bar",data:{labels:years,datasets:[{label:"Actual",data:vals,backgroundColor:colors,hoverBackgroundColor:"#000000",borderRadius:6,barPercentage:.55}]},
   plugins:[valueLabelPlugin],options:{responsive:true,maintainAspectRatio:false,onClick:function(e,els){if(els&&els.length)pickKpi("year",years[els[0].index]);},plugins:{legend:{display:false},tooltip:{callbacks:{label:function(x){return (month?MONTHS[month-1]:rangeLabel)+": "+fmt(x.parsed.y)+" MB";}}}},scales:{y:{beginAtZero:true,grace:"15%"},x:{grid:{display:false}}}}});}
 
 function drawMonthly(){destroy("cMonthly");var c=C();var lb=[],act=[],le=[],ly=[],aop=[];
  var focusInfo=currentFocus(c),focus=focusInfo&&focusInfo.series,focusName=focusInfo&&focusInfo.name||"",vy=viewYear,history=(focusInfo&&focusInfo.history)||c.history||{},historical=(vy!==fy),seriesOk=hasS(c)&&!focus&&!historical;
- setV("tgM",(focusName?(label()+" \u2022 "+focusName):label())+(historical?" \u2022 "+vy:""));
+ setV("tgM",(focusName?(shipToLabel()+" \u2022 "+focusName):shipToLabel())+(historical?" \u2022 "+vy:""));
  ["lgLE","lgAOP"].forEach(function(id){var e=document.getElementById(id);if(e)e.style.display=(focus||historical)?"none":"inline-flex";});
  var actualSeries=(focus?focus.actual:(historical?(history[String(vy)]||{}):actSeries(c))),lySeries=(focus?focus.ly:(historical?(history[String(vy-1)]||{}):comparisonLySeries(c))),lyAvailable=hasSeriesData(lySeries),maxMonth=historical?12:lastClosed,latestVisible=Math.min(selTo,maxMonth);
  for(var i=1;i<=12;i++){var m=i;lb.push((m>=selFrom&&m<=selTo)?MONTHS[m-1]:"");act.push((m<=maxMonth&&m>=selFrom&&m<=selTo)?num(actualSeries[String(m)]):null);le.push((seriesOk&&m>=lastClosed&&m>=selFrom&&m<=selTo)?sv(c,"s_le",m):null);ly.push((lyAvailable&&m>=selFrom&&m<=selTo)?num(lySeries[String(m)]):null);aop.push((seriesOk&&m>=selFrom&&m<=selTo)?sv(c,"s_aop",m):null);}
@@ -227,7 +315,7 @@ function drawTable(){var c=C(),focusInfo=currentFocus(c),focus=focusInfo&&focusI
  var ptvly=(ty>0)?(tvly/ty*100):null,ptvaop=(isTotal&&!histYear&&ta2>0)?(tvaop/ta2*100):null;
  h+='<tr class="total"><td>Total</td><td>'+fmt(ta)+'</td><td>'+(isTotal&&!histYear&&seriesOk?fmt(tl):'\u2014')+'</td><td>'+(lyAvailable?fmt(ty):'\u2014')+'</td><td>'+(isTotal&&!histYear&&seriesOk?fmt(ta2):'\u2014')+'</td>'+cmpDoubleCell("Total VS LY",lyAvailable?tvly:null,lyAvailable?ptvly:null)+((isTotal&&!histYear&&seriesOk)?cmpDoubleCell("Total VS AOP",tvaop,ptvaop):'<td>\u2014</td><td>\u2014</td>')+'</tr></tbody>';
  setT("mTable",h);}
-function drawCategory(c){var el=document.getElementById("cCat");if(!el||!Chart)return;destroy("cCat");var cT=document.getElementById("tgCat");if(cT)cT.textContent=(activeCat?("Category \u2022 "+activeCat):label());
+function drawCategory(c){var el=document.getElementById("cCat");if(!el||!Chart)return;destroy("cCat");var cT=document.getElementById("tgCat");if(cT)cT.textContent=(activeCat?("Category \u2022 "+activeCat):shipToLabel());
  var histYear=isHistoricalYear(),allCats,tot;
  if(histYear){var hm=c.history_by_cat||{},hs=Object.keys(hm).map(function(n){var s=0,h=hm[n]&&hm[n][String(viewYear)]||{};for(var m=selFrom;m<=selTo;m++)s+=num(h[String(m)]);return {name:n,mb:s};}).sort(function(a,b){return b.mb-a.mb;}),grand=0;hs.forEach(function(x){grand+=x.mb;});allCats=hs.map(function(x){return {name:x.name,mb:x.mb,pct:grand?(x.mb/grand*100):0};});tot=grand;}
  else{allCats=(c.category&&c.category.items)?c.category.items:[];tot=c.total_mb;}
@@ -297,7 +385,7 @@ function drawCategoryPerformance(c){
  var ta=0,tl=0,allLy=true;
  ordered.forEach(function(r){var v=r.v,con=r.vals.contrib,cls='perf-row'+(v.growth!=null&&v.growth>0?' growing':'')+(activeCat===r.name?' selected':'');ta+=v.actual;if(v.ly==null)allLy=false;else tl+=v.ly;h+='<tr class="'+cls+'" data-cat="'+encodeURIComponent(r.name)+'"><td style="text-align:left;white-space:normal">'+r.name+'</td><td>'+perfCell(v.ly)+'</td><td>'+fmt(v.actual)+'</td><td>'+signedPerf(v.growth)+'</td><td>'+signedPerf(v.pct,'%')+'</td><td>'+fmt(con)+'%</td></tr>';});
  var tg=allLy?ta-tl:null,tp=(allLy&&tl!==0)?tg/tl*100:null;
- h+='</tbody><tfoot><tr class="total"><td style="text-align:left">Total</td><td>'+perfCell(allLy?tl:null)+'</td><td>'+fmt(ta)+'</td><td>'+signedPerf(tg)+'</td><td>'+signedPerf(tp,'%')+'</td><td>'+(ordered.length?'100.0%':'\u2014')+'</td></tr></tfoot>';setT('catPerfTable',h);setV('tgCatPerf',label()+(activeCat?' \u2022 '+activeCat:''));
+ h+='</tbody><tfoot><tr class="total"><td style="text-align:left">Total</td><td>'+perfCell(allLy?tl:null)+'</td><td>'+fmt(ta)+'</td><td>'+signedPerf(tg)+'</td><td>'+signedPerf(tp,'%')+'</td><td>'+(ordered.length?'100.0%':'\u2014')+'</td></tr></tfoot>';setT('catPerfTable',h);setV('tgCatPerf',shipToLabel()+(activeCat?' \u2022 '+activeCat:''));
  Array.prototype.forEach.call(document.querySelectorAll('#catPerfTable .perf-row'),function(r){r.onclick=function(){toggleCat(decodeURIComponent(r.getAttribute('data-cat')));};});
  bindSortHeaders('catPerfTable');
 }
@@ -353,6 +441,44 @@ function drawChannelSummary(){
   var el=document.getElementById("chTable");if(!el)return;
   var SD=sourceData();
   setV("tgChRange",MONTHS[selFrom-1]+"\u2013"+MONTHS[selTo-1]+" "+viewYear);
+  // [[SHIPTO-SUMMARY]] When a Ship-to is selected the cards show that location\'s
+  // split across the selected channels, so "Sales by Channel" also follows the filter.
+  if(activeShipTo){
+    var byC={},byLy={},stTot=0;
+    (S.facts||[]).forEach(function(r){
+      if(r[0]!==activeShipTo||!shipToBasisSet()[r[1]])return;
+      var m=Number(r[3]);if(m<num(selFrom)||m>num(selTo))return;
+      if(activeCat&&r[4]!==activeCat)return;
+      if(activeSku&&r[5]!==activeSku)return;
+      if(String(r[2])===String(viewYear)){byC[r[1]]=num(byC[r[1]]||0)+num(r[6]);stTot+=num(r[6]);}
+      else if(String(r[2])===String(viewYear-1))byLy[r[1]]=num(byLy[r[1]]||0)+num(r[6]);
+    });
+    var defs={};(D._channels||[]).forEach(function(ch){defs[ch.id]=ch;});
+    var rows2=[],tot2=0;
+    Object.keys(byC).forEach(function(cid){
+      var def=defs[cid]||{label:cid},ly=num(byLy[cid]||0),a=num(byC[cid]||0),g=ly>0?(a-ly)/ly*100:(a>0?null:null);
+      rows2.push({id:cid,label:(cid==="LOTUS'"?"Lotus's":(def.label||cid)),a:a,ly:ly,g:g});tot2+=a;
+    });
+    rows2.sort(function(x,y){return y.a-x.a;});
+    channelExportRows=rows2.map(function(r){var contribution=tot2?r.a/tot2*100:0;return {label:r.label,actual:r.a,contribution:contribution,ly:r.ly,gap:r.a-r.ly,growth:r.g};});
+    var h2='<div class="chgrid">';
+    if(!rows2.length)h2+='<div class="chcard" style="cursor:default"><div class="chname">No channel data</div><div class="chval">\u2014</div></div>';
+    rows2.forEach(function(r){
+      var sh=tot2?(r.a/tot2*100):0,grow=r.g,cls=(grow!=null&&grow>=0)?"up":"down",gap=r.a-r.ly;
+      var gtxt=(grow==null)?"\u2014":((gap>=0?"+":"")+gap.toFixed(1)+" MB ("+(grow>=0?"+":"")+grow.toFixed(1)+"%)");
+      var bg=grow!=null?(grow>=0?"#dcfce7":"#fff"):"#fff";
+      h2+='<div class="chcard" data-ch="'+r.id+'" style="background:'+bg+';cursor:pointer">';
+      h2+='  <div class="chhead"><span class="chname">'+r.label+'</span></div>';
+      h2+='  <div class="chcon">'+sh.toFixed(1)+'%<small>Con</small></div>';
+      h2+='  <div class="chval">'+fmt(r.a)+'<small>MB</small></div>';
+      h2+='  <div class="chly">LY '+fmt(r.ly)+' Gap <span class="'+cls+'">'+gtxt+'</span></div>';
+      h2+='</div>';
+    });
+    h2+='</div>';
+    el.innerHTML=h2;
+    Array.prototype.forEach.call(document.querySelectorAll(".chcard[data-ch]"),function(el3){el3.addEventListener("click",function(){selectChan(el3.getAttribute("data-ch"));});});
+    return;
+  }
   var rows=[],tot=0;
   var focInfo=currentFocus(C()),focusName=focInfo&&focInfo.name;
   // Cards follow the active channel filter so their Actual total reconciles to the KPI.
@@ -400,8 +526,7 @@ function drawChannelSummary(){
 // reconcile with the Actual KPI under identical filters.
 function drawShipTo(){
   var el=document.getElementById("shipToTable");if(!el||!S)return;
-  var selSet={};selChans.forEach(function(id){selSet[id]=1;});
-  var from=num(selFrom),to=num(selTo),year=String(viewYear);
+  var selSet=shipToBasisSet(),from=num(selFrom),to=num(selTo),year=String(viewYear);
   var filterCat=activeCat,filterSku=activeSku;
   var rows={},monthTotals={},grand=0;
   (S.facts||[]).forEach(function(r){
@@ -425,7 +550,11 @@ function drawShipTo(){
   if(!show)names=names.slice(0,400); // cap rendered rows; footer Total still sums all
   names.forEach(function(nm){
     var row=rows[nm];
-    h+='<tr><td style="text-align:left;white-space:normal">'+row.name+'</td>';
+    var on=activeShipTo===nm;
+    var enc=encodeURIComponent(nm);
+    var cls=['st-row',on?'shipto-selected':''].join(' ');
+    h+='<tr class="'+cls+'" tabindex="0" role="button" data-shipto="'+enc+'" aria-pressed="'+on+'" title="'+escAttr((on?"":"ดูเฉพาะ ")+(on?"คลิกอีกครั้งเพื่อแสดงยอดรวมทั้งหมด":nm))+'" style="cursor:pointer">';
+    h+='<td style="text-align:left;white-space:normal">'+escHtml(row.name)+(on?' <span class="st-show">\u25bc</span>':'')+'</td>';
     for(var m=from;m<=to;m++)h+='<td>'+fmt(row.months[m]||0)+'</td>';
     h+='<td><b>'+fmt(row.total)+'</b></td></tr>';
   });
@@ -434,7 +563,20 @@ function drawShipTo(){
   for(var m=from;m<=to;m++)h+='<td>'+fmt(monthTotals[m]||0)+'</td>';
   h+='<td>'+fmt(grand)+'</td></tr></tfoot>';
   setT("shipToTable",h);
-  setV("tgShipTo",label()+" | YTD Total "+fmt(grand)+" MB");
+  // Click a row to filter everything to that Ship-to; click again to clear.
+  Array.prototype.forEach.call(document.querySelectorAll("#shipToTable tbody tr.st-row"),function(tr){
+    function pick(){toggleShipTo(decodeURIComponent(tr.getAttribute("data-shipto")));}
+    tr.addEventListener("click",pick);
+    tr.addEventListener("keydown",function(e){if(e.key==="Enter"||e.key===" "){e.preventDefault();pick();}});
+  });
+  setV("tgShipTo",(activeShipTo?("Ship-to \u2022 "+activeShipTo):(label()+" | YTD Total "+fmt(grand)+" MB")));
+  var header=document.getElementById("shiptoHeaderActions");
+  if(header){header.innerHTML=activeShipTo?(''+
+    '<button type="button" class="export-btn st-clear" id="stClear" style="border-color:#e11d48;background:#fff1f2;color:#be123c">\u2715 \u0e40\u0e04\u0e25\u0e35\u0e22\u0e23\u0e4c\u0e01\u0e23\u0e2d\u0e07\u0e2a\u0e16\u0e32\u0e19\u0e17\u0e35\u0e48</button>'):'';
+    var clr=header.querySelector("#stClear");if(clr)clr.onclick=function(){toggleShipTo(activeShipTo);};}
 }
+function toggleShipTo(name){activeShipTo=(activeShipTo===name)?null:name;kpiPick=null;renderAll();}
+function escHtml(s){return String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");}
+function escAttr(s){return escHtml(String(s==null?"":s).replace(/'/g,"&#39;"));}
 
 // Dashboard bootstraps after the password gate unlocks it (see index.html).
