@@ -1,5 +1,5 @@
 ﻿const MONTHS=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
-let D=null,S=null,shipCache=null,selShips=[],charts={},cur="MT",selChans=["MAKRO","LOTUS'"],selFrom=1,selTo=8,lastClosed=8,fy=2026;
+let D=null,S=null,charts={},cur="MT",selChans=["MAKRO","LOTUS'"],selFrom=1,selTo=8,lastClosed=8,fy=2026;
 var viewYear=fy; // Year filter state; defaults to fy (2026) so the first-open view is unchanged.
 function num(v){return (v==null||isNaN(v))?0:Number(v);}
 function fmt(v){return (v==null||isNaN(v))?"-":Number(v).toLocaleString("en-US",{minimumFractionDigits:1,maximumFractionDigits:1});}
@@ -19,14 +19,14 @@ function dark(h){var n=parseInt(h.slice(1),16);return "rgb("+Math.max(0,((n>>16)
 var activeCat=null,activeSku=null,kpiPick=null;
 var catSort=null,skuSort=null; // {col:'ly'|'actual'|'growth'|'pct'|'contrib', dir:'desc'|'asc'} or null
 var channelExportRows=[];
-function exportContext(){return {Channel:label(),ShipTo:selShips.length?selShips.join(" | "):"All",From:MONTHS[selFrom-1],To:MONTHS[selTo-1],Year:viewYear,Category:activeCat||"All",SKU:activeSku||"All",LatestSales:salesDateTxt()};}
+function exportContext(){return {Channel:label(),From:MONTHS[selFrom-1],To:MONTHS[selTo-1],Year:viewYear,Category:activeCat||"All",SKU:activeSku||"All",LatestSales:salesDateTxt()};}
 function exportCell(v){var s=String(v==null?"":v).trim().replace(/\s*[▼▲]\s*/g,"").replace(/, sorted.*$/i,"");if(s==="—"||s==="-")return "";var p=s.match(/^([+-]?[\d,]+(?:\.\d+)?)%$/);if(p)return Number(p[1].replace(/,/g,""))/100;var n=s.match(/^([+-]?[\d,]+(?:\.\d+)?)$/);if(n)return Number(n[1].replace(/,/g,""));return s;}
 function tableExportRows(id){var t=document.getElementById(id),out=[];if(!t)return out;Array.prototype.forEach.call(t.querySelectorAll("tr"),function(tr){var row=[];Array.prototype.forEach.call(tr.querySelectorAll("th,td"),function(td){row.push(exportCell(td.textContent));});out.push(row);});return out;}
 function chartExportRows(id){var ch=charts[id];if(!ch)return [];var ds=ch.data.datasets||[],head=["Period"].concat(ds.map(function(x){return x.label||"Value";})),out=[head];(ch.data.labels||[]).forEach(function(lb,i){if(lb==="")return;var row=[lb];ds.forEach(function(x){var v=x.data&&x.data[i];row.push(v==null?"":num(v));});out.push(row);});return out;}
 function safeFilePart(s){return String(s||"").replace(/[^A-Za-z0-9_-]+/g,"_").replace(/^_+|_+$/g,"");}
 function exportSection(section){
   if(typeof XLSX==="undefined"){alert("Excel export library is not available. Please check your connection and refresh.");return;}
-  var names={annual:"Annual_Sales",monthly:"Monthly_Performance",monthly_table:"Monthly_Table",category:"Sales_by_Category",category_performance:"Category_Performance",sku:"SKU_Performance",channel:"Sales_by_Channel"};
+  var names={annual:"Annual_Sales",monthly:"Monthly_Performance",monthly_table:"Monthly_Table",category:"Sales_by_Category",category_performance:"Category_Performance",sku:"SKU_Performance",channel:"Sales_by_Channel",ship_to:"Ship_to_by_Month"};
   var rows=[];
   if(section==="annual")rows=chartExportRows("cAnnual");
   else if(section==="monthly")rows=chartExportRows("cMonthly");
@@ -35,6 +35,9 @@ function exportSection(section){
   else if(section==="category_performance")rows=tableExportRows("catPerfTable");
   else if(section==="sku")rows=tableExportRows("skuTable");
   else if(section==="channel"){rows=[["Channel","Actual (MB)","Contribution","LY 2025 (MB)","Gap (MB)","Growth vs LY"]];channelExportRows.forEach(function(r){rows.push([r.label,r.actual,r.contribution/100,r.ly,r.gap,r.growth==null?"":r.growth/100]);});}
+  else if(section==="ship_to"){rows=tableExportRows("shipToTable");
+    var colHdr=rows.length?rows[0]:[];if(colHdr.length)colHdr[0]="Ship-to party";
+  }
   if(!rows.length){alert("No data available for export.");return;}
   var wb=XLSX.utils.book_new(),ws=XLSX.utils.aoa_to_sheet(rows),ctx=exportContext(),meta=[["Filter","Value"]];Object.keys(ctx).forEach(function(k){meta.push([k,ctx[k]]);});
   ws["!cols"]=rows[0].map(function(_,i){var w=12;rows.forEach(function(r){w=Math.max(w,String(r[i]==null?"":r[i]).length+2);});return {wch:Math.min(w,42)};});
@@ -60,10 +63,10 @@ var valueLabelPlugin={id:"valueLabelPlugin",afterDatasetsDraw:function(chart){va
 if(typeof Chart!=="undefined"){try{Chart.register(valueLabelPlugin);}catch(e){}}
 var piePlugin={id:"piePlugin",afterDraw:function(chart){var ctx=chart.ctx;var o=(chart.options.plugins||{}).pieText;if(!o||o.hide)return;var a=chart.chartArea,cx=(a.left+a.right)/2,cy=(a.top+a.bottom)/2;
  if(o.label!==undefined){ctx.save();ctx.textAlign="center";ctx.textBaseline="middle";ctx.fillStyle="#0f172a";ctx.font="700 22px Arial,sans-serif";ctx.fillText(String(o.label),cx,cy);ctx.restore();}}};
-function sourceData(){return selShips.length?shipCache:D;}
+function sourceData(){return D;}
 function sel(){return sourceData()[cur];}
 function selAll(){
-  var SD=sourceData(),out={label:selChans.map(function(i){return SD[i]&&SD[i].label||i;}).join(" + "),monthly:{},history:{},category:{items:[]},annual:{},s_actual:{},s_le:{},s_ly:{},s_aop:{},monthly_by_cat:{},history_by_cat:{},annual_by_cat:{},monthly_by_sku:{},history_by_sku:{},annual_by_sku:{},_planningOK:!selShips.length};
+  var SD=sourceData(),out={label:selChans.map(function(i){return SD[i]&&SD[i].label||i;}).join(" + "),monthly:{},history:{},category:{items:[]},annual:{},s_actual:{},s_le:{},s_ly:{},s_aop:{},monthly_by_cat:{},history_by_cat:{},annual_by_cat:{},monthly_by_sku:{},history_by_sku:{},annual_by_sku:{},_planningOK:true};
   selChans.forEach(function(id){var c=SD[id];if(!c)return;
     if(!hasS(c))out._planningOK=false;
     for(var m=1;m<=12;m++){out.monthly[String(m)]=num(out.monthly[String(m)])+num(c.monthly&&c.monthly[String(m)]||0);
@@ -85,17 +88,12 @@ function selAll(){
 }
 function mergeFocusMaps(outM,outH,outA,srcM,srcH,srcA){Object.keys(srcM).forEach(function(key){outM[key]=outM[key]||{actual:{},ly:{}};if(srcM[key].cat&&!outM[key].cat)outM[key].cat=srcM[key].cat;for(var m=1;m<=12;m++){outM[key].actual[String(m)]=num(outM[key].actual[String(m)])+num((srcM[key].actual||{})[String(m)]);outM[key].ly[String(m)]=num(outM[key].ly[String(m)])+num((srcM[key].ly||{})[String(m)]);}});Object.keys(srcH).forEach(function(key){outH[key]=outH[key]||{};Object.keys(srcH[key]||{}).forEach(function(y){outH[key][y]=outH[key][y]||{};for(var m=1;m<=12;m++)outH[key][y][String(m)]=num(outH[key][y][String(m)])+num(srcH[key][y][String(m)]);});});Object.keys(srcA).forEach(function(key){outA[key]=outA[key]||{};Object.keys(srcA[key]||{}).forEach(function(y){outA[key][y]=num(outA[key][y])+num(srcA[key][y]);});});}
 function mergeSkuList(list){var map={};(list||[]).forEach(function(s){var k=s.name;if(!map[k])map[k]={name:s.name,mb:0,cat:s.cat||""};map[k].mb+=num(s.mb);});return Object.keys(map).map(function(k){return map[k];}).sort(function(a,b){return b.mb-a.mb;});}
-function label(){var SD=sourceData(),ids=(D&&D._channels||[]).filter(function(ch){return ch.id!=="MT";}).map(function(ch){return ch.id;}),base;if(ids.length&&selChans&&selChans.length===ids.length)base="All Channel";else if(selChans&&selChans.length>1)base=selChans.map(function(i){return SD[i]&&SD[i].label||i;}).join(" + ");else base=SD[cur]?SD[cur].label:cur;return base+(selShips.length?(" | Ship-to: "+(selShips.length===1?selShips[0]:selShips.length+" selected")):"");}
+function label(){var SD=sourceData(),ids=(D&&D._channels||[]).filter(function(ch){return ch.id!=="MT";}).map(function(ch){return ch.id;}),base;if(ids.length&&selChans&&selChans.length===ids.length)base="All Channel";else if(selChans&&selChans.length>1)base=selChans.map(function(i){return SD[i]&&SD[i].label||i;}).join(" + ");else base=SD[cur]?SD[cur].label:cur;return base;}
 function C(){
   if(selChans&&selChans.length>1)return selAll();
   return sel();
 }
-function buildShipCache(){
-  shipCache={};if(!selShips.length)return;var wanted={};selShips.forEach(function(x){wanted[x]=1;});
-  function ch(id){if(!shipCache[id])shipCache[id]={label:id,monthly:{},history:{},annual:{},category:{items:[]},monthly_by_cat:{},history_by_cat:{},annual_by_cat:{},monthly_by_sku:{},history_by_sku:{},annual_by_sku:{},top_sku_all:[],top_sku_by_cat:{},_planningOK:false};return shipCache[id];}
-  (S.facts||[]).forEach(function(r){if(!wanted[r[0]])return;var c=ch(r[1]),y=String(r[2]),m=String(r[3]),cat=r[4],sku=r[5],v=num(r[6]);c.history[y]=c.history[y]||{};c.history[y][m]=num(c.history[y][m])+v;c.annual[y]=num(c.annual[y])+v;c.history_by_cat[cat]=c.history_by_cat[cat]||{};c.history_by_cat[cat][y]=c.history_by_cat[cat][y]||{};c.history_by_cat[cat][y][m]=num(c.history_by_cat[cat][y][m])+v;c.annual_by_cat[cat]=c.annual_by_cat[cat]||{};c.annual_by_cat[cat][y]=num(c.annual_by_cat[cat][y])+v;c.history_by_sku[sku]=c.history_by_sku[sku]||{};c.history_by_sku[sku][y]=c.history_by_sku[sku][y]||{};c.history_by_sku[sku][y][m]=num(c.history_by_sku[sku][y][m])+v;c.annual_by_sku[sku]=c.annual_by_sku[sku]||{};c.annual_by_sku[sku][y]=num(c.annual_by_sku[sku][y])+v;if(+y===fy){c.monthly[m]=num(c.monthly[m])+v;c.monthly_by_cat[cat]=c.monthly_by_cat[cat]||{actual:{},ly:{}};c.monthly_by_cat[cat].actual[m]=num(c.monthly_by_cat[cat].actual[m])+v;c.monthly_by_sku[sku]=c.monthly_by_sku[sku]||{cat:cat,actual:{},ly:{}};c.monthly_by_sku[sku].actual[m]=num(c.monthly_by_sku[sku].actual[m])+v;}});
-  Object.keys(shipCache).forEach(function(id){var c=shipCache[id],cats={},skus={};c.s_actual=c.monthly;c.s_ly=c.history[String(fy-1)]||{};Object.keys(c.history_by_cat).forEach(function(cat){var h=c.history_by_cat[cat];c.monthly_by_cat[cat]=c.monthly_by_cat[cat]||{actual:{},ly:{}};c.monthly_by_cat[cat].ly=h[String(fy-1)]||{};cats[cat]=num(c.annual_by_cat[cat]&&c.annual_by_cat[cat][String(fy)]);});Object.keys(c.history_by_sku).forEach(function(sku){var h=c.history_by_sku[sku];c.monthly_by_sku[sku]=c.monthly_by_sku[sku]||{cat:"",actual:{},ly:{}};c.monthly_by_sku[sku].ly=h[String(fy-1)]||{};skus[sku]=num(c.annual_by_sku[sku]&&c.annual_by_sku[sku][String(fy)]);});c.total_mb=Object.keys(c.monthly).reduce(function(a,m){return a+num(c.monthly[m]);},0);c.category.items=Object.keys(cats).map(function(k){return {name:k,mb:cats[k],pct:c.total_mb?cats[k]/c.total_mb*100:0};}).sort(function(a,b){return b.mb-a.mb;});c.category.total_mb=c.total_mb;c.top_sku_all=Object.keys(skus).map(function(k){var cat=c.monthly_by_sku[k].cat;return {name:k,mb:skus[k],cat:cat};}).sort(function(a,b){return b.mb-a.mb;});c.top_sku_all.forEach(function(x){(c.top_sku_by_cat[x.cat]=c.top_sku_by_cat[x.cat]||[]).push(x);});});
-}
+
 function load(){
  Promise.all([fetch("data_channels.json?v="+Date.now()).then(r=>r.json()),fetch("shipto_data.json?v="+Date.now()).then(r=>r.json())]).then(function(res){
    D=res[0];S=res[1];lastClosed=D._lastClosed||8;fy=2026;
@@ -115,8 +113,6 @@ function load(){
      cb.onchange=function(){var x=selChans.indexOf(ch.id);if(cb.checked&&x<0)selChans.push(ch.id);else if(!cb.checked&&x>=0)selChans.splice(x,1);if(!selChans.length)selChans=[ch.id];scanChk();cur=selChans[0];activeCat=null;activeSku=null;kpiPick=null;renderAll();};
    });
    scanChk();cur=selChans[0];
-   var ss=document.getElementById("selShipTo");ss.innerHTML="";var ao=document.createElement("option");ao.value="";ao.textContent="All Ship-to party";ss.appendChild(ao);(S.shipTo||[]).forEach(function(x){var o=document.createElement("option");o.value=x;o.textContent=x;ss.appendChild(o);});
-   ss.onchange=function(){selShips=Array.prototype.filter.call(ss.options,function(o){return o.selected&&o.value;}).map(function(o){return o.value;});buildShipCache();activeCat=null;activeSku=null;kpiPick=null;renderAll();};
    // Year filter: list every year present in the data (actual/LY history and annual),
    // default to the current fiscal year (fy) so the first-open view is unchanged.
    var sy=document.getElementById("selYear");sy.innerHTML="";
@@ -186,7 +182,7 @@ function renderAll(){
     else{setT("kAOP","\u2014");setT("kAOPgap","");setT("kAOPpc","");setT("kAOPcmp",histYear2?"No planning for selected year":"No AOP data");}
     setV("hDate",salesDateTxt());
     drawAnnual();drawMonthly();drawTable();
-    drawCategory(c);drawSku(c);drawCategoryPerformance(c);drawChannelSummary();
+    drawCategory(c);drawSku(c);drawCategoryPerformance(c);drawChannelSummary();drawShipTo();
     if(kpiPick)applyKpiPick();
   }catch(e){setT("tgM","ERR: "+e.message);}
 }
@@ -398,4 +394,47 @@ function drawChannelSummary(){
   el.innerHTML=h;
   Array.prototype.forEach.call(document.querySelectorAll(".chcard[data-ch]"),function(el2){el2.addEventListener("click",function(){selectChan(el2.getAttribute("data-ch"));});});
 }
+// Sales by Ship-to party table (rows = ship-to, columns = months, values in MB).
+// Driven by shipto_data.json facts and responds to the same Channel / Year /
+// From-To / Category / SKU filters as the KPI Actual, so the row totals
+// reconcile with the Actual KPI under identical filters.
+function drawShipTo(){
+  var el=document.getElementById("shipToTable");if(!el||!S)return;
+  var selSet={};selChans.forEach(function(id){selSet[id]=1;});
+  var from=num(selFrom),to=num(selTo),year=String(viewYear);
+  var filterCat=activeCat,filterSku=activeSku;
+  var rows={},monthTotals={},grand=0;
+  (S.facts||[]).forEach(function(r){
+    if(!selSet[r[1]])return;             // channel filter
+    if(String(r[2])!==year)return;       // year filter
+    var m=Number(r[3]);if(m<from||m>to)return; // month range filter
+    if(filterCat&&r[4]!==filterCat)return; // category filter
+    if(filterSku&&r[5]!==filterSku)return;  // SKU filter
+    var nm=r[0],v=num(r[6]);
+    var row=rows[nm];if(!row){row=rows[nm]={name:nm,months:{},total:0};}
+    row.months[m]=num(row.months[m])+v;
+    row.total=num(row.total)+v;
+    monthTotals[m]=num(monthTotals[m])+v;
+    grand=num(grand)+v;
+  });
+  var names=Object.keys(rows).sort(function(a,b){return rows[b].total-rows[a].total;});
+  var h='<thead><tr><th>Ship-to party ('+names.length+')</th>';
+  for(var m=from;m<=to;m++)h+='<th>'+MONTHS[m-1]+'</th>';
+  h+='<th>Total</th></tr></thead><tbody>';
+  var show=(names.length<=400);
+  if(!show)names=names.slice(0,400); // cap rendered rows; footer Total still sums all
+  names.forEach(function(nm){
+    var row=rows[nm];
+    h+='<tr><td style="text-align:left;white-space:normal">'+row.name+'</td>';
+    for(var m=from;m<=to;m++)h+='<td>'+fmt(row.months[m]||0)+'</td>';
+    h+='<td><b>'+fmt(row.total)+'</b></td></tr>';
+  });
+  if(!show)h+='<tr><td style="text-align:left" class="recon-row">Showing top 400 by sales; remaining ship-to parties included in Total.</td><td colspan="'+(to-from+2)+'"></td></tr>';
+  h+='</tbody><tfoot><tr class="total"><td style="text-align:left">Total</td>';
+  for(var m=from;m<=to;m++)h+='<td>'+fmt(monthTotals[m]||0)+'</td>';
+  h+='<td>'+fmt(grand)+'</td></tr></tfoot>';
+  setT("shipToTable",h);
+  setV("tgShipTo",label()+" | YTD Total "+fmt(grand)+" MB");
+}
+
 // Dashboard bootstraps after the password gate unlocks it (see index.html).

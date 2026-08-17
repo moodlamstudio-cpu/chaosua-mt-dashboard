@@ -51,6 +51,11 @@
   #chTable td,#chTable th{vertical-align:middle;}
   .perf-scroll{overflow:auto;border:1px solid #f1f5f9;border-radius:8px;}
   .sku-scroll{max-height:420px;scrollbar-gutter:stable;}
+  .shipto-scroll{max-height:460px;overflow:auto;scrollbar-gutter:stable;border:1px solid #f1f5f9;border-radius:8px;}
+  #shipToTable th:first-child,#shipToTable td:first-child{position:sticky;left:0;background:#fff;box-shadow:1px 0 0 var(--border);min-width:200px;max-width:340px;}
+  #shipToTable thead th:first-child{z-index:5;}
+  #shipToTable tbody td:first-child{z-index:1;}
+  #shipToTable tfoot td:first-child{background:#f8fafc;} 
   .cat-perf-scroll{overflow-x:auto;overflow-y:visible;max-height:none;}
   .perf-scroll table{min-width:820px;}
   .perf-scroll thead th{position:sticky;top:0;z-index:2;background:#fff;box-shadow:0 1px 0 var(--border);}
@@ -119,7 +124,7 @@
 </header>
 <div class="wrap">
   <div class="controls">
-    <label>Channel</label><div id="selChannel" class="chans"></div> <label>Ship-to party</label><select id="selShipTo" multiple size="4" style="min-width:280px;max-width:420px"></select> <label>From</label><select id="selFrom"></select> <label>To</label><select id="selTo"></select> <label>Year</label><select id="selYear"></select>
+    <label>Channel</label><div id="selChannel" class="chans"></div> <label>From</label><select id="selFrom"></select> <label>To</label><select id="selTo"></select> <label>Year</label><select id="selYear"></select>
   </div>
   <div class="kpis">
     <div class="kpi"><div class="lbl">Actual <span id="lblAct" style="font-weight:400;color:#64748b"></span></div><div class="val" id="kACT"><small>MB</small></div><div class="cmp">Latest sales as of <b id="kACTdate">-</b></div></div>
@@ -136,12 +141,13 @@
   <div class="card"><h3><span>Category Performance</span><span class="head-actions"><span class="tag" id="tgCatPerf">Total</span><button class="export-btn" type="button" onclick="exportSection('category_performance')">Export Excel</button></span></h3><div class="perf-scroll cat-perf-scroll"><table id="catPerfTable"></table></div></div>
   <div class="card"><h3><span>All SKU Performance</span><span class="head-actions"><span class="tag" id="tgSku">Total</span><button class="export-btn" type="button" onclick="exportSection('sku')">Export Excel</button></span></h3><div class="perf-scroll sku-scroll"><table id="skuTable"></table></div></div>
   <div class="card"><h3><span>Sales by Channel — <span id="tgChRange">Jan–Aug 2026</span> (MB)</span><span class="head-actions"><span class="tag">All MT · vs LY</span><button class="export-btn" type="button" onclick="exportSection('channel')">Export Excel</button></span></h3><div id="chTable"></div></div>
+  <div class="card"><h3><span>ยอดขายตาม Ship-to party (MB)</span><span class="head-actions"><span class="tag" id="tgShipTo">Total</span><button class="export-btn" type="button" onclick="exportSection('ship_to')">Export Excel</button></span></h3><div class="perf-scroll shipto-scroll"><table id="shipToTable"></table></div></div>
 </div>
 <footer>CHAOSUA . MT Sales Dashboard . Source: Dashboard Pivot</footer>
 </div>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/pptxgenjs@3.12.0/dist/pptxgen.bundle.js"></script>
-<script src="app.js?v=20260817v1"></script>
+<script src="app.js?v=20260817v2"></script>
 <script>
 /* ---- Client-side password gate (SHA-256 hash comparison; plaintext is NOT stored) ---- */
 (function(){
