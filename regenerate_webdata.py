@@ -21,6 +21,7 @@ This script only refreshes numbers; it does not change UI/business formulas.
 """
 import json
 import datetime
+import re
 from collections import defaultdict
 from openpyxl import load_workbook
 
@@ -339,27 +340,54 @@ def last_sales_date(last_closed):
         best = _dt.date(FISCAL_YEAR, last_closed, 28)
     return best.isoformat()
 
+def _parse_day(*cells):
+    """Extract the calendar day-of-month from a raw Date cell. Returns an int (1-31)
+    or None when the cell is empty / unreadable. Accepts datetime/date objects and
+    DD/MM/YYYY (or D/M/YYYY) strings, which is how the source workbook stores dates."""
+    import datetime as _dt
+    for c in cells:
+        if c is None:
+            continue
+        if isinstance(c, (datetime.datetime, _dt.date)):
+            d = c.day if isinstance(c, datetime.datetime) else c.day
+            if 1 <= d <= 31:
+                return d
+        elif isinstance(c, str):
+            part = c.strip()
+            if not part:
+                continue
+            m = re.match(r"^(\d{1,2})[/-](\d{1,2})[/-](\d{2,4})$", part)
+            if m:
+                d = int(m.group(1))
+                if 1 <= d <= 31:
+                    return d
+            try:
+                parsed = _dt.datetime.strptime(part, "%d/%m/%Y").date()
+                if 1 <= parsed.day <= 31:
+                    return parsed.day
+            except ValueError:
+                pass
+    return None
+
+
 def write_shipto_data():
-    """Write compact sales facts used by the browser's Ship-to party filter."""
+    """Write compact sales facts used by the browser's Ship-to party filter.
+
+    The raw Date column (index 3) carries day-level granularity for every month/year
+    (stored as DD/MM/YYYY strings or datetime objects). Each fact is therefore
+    bucketed per calendar day and written as:
+        [ship, chan, year, month, cat, sku, val, day]   (val in MB, day at tail)
+    day is the day-of-month (1-31) or null when the source date is unreadable.
+    Keeping day at index 7 (the tail) means every other fact-index used by the UI
+    (ship=0, chan=1, year=2, month=3, cat=4, sku=5, val=6) is UNCHANGED, so all
+    month-level dashboard logic continues to work untouched and only the new daily
+    table reads index 7.
+    """
     wb = load_workbook(SRC, read_only=True, data_only=True)
     pm = load_product_master(wb)
     ws = wb["Raw data"]
     facts = defaultdict(float)
     labels = set()
-    def _day_of(date_val):
-        # Raw data date column (index 3) is usually DD/MM/YYYY text or an
-        # Excel serial. Extract just the day-of-month (fact[7]).
-        import datetime as _dt
-        if isinstance(date_val, int) and date_val > 10000:
-            return (_dt.date(1899, 12, 30) + _dt.timedelta(days=int(date_val))).day
-        if isinstance(date_val, str):
-            try:
-                dd = int(date_val.strip().split("/")[0])
-                return dd if 1 <= dd <= 31 else None
-            except Exception:
-                return None
-        return None
-
     for i, r in enumerate(ws.iter_rows(values_only=True)):
         if i == 0:
             continue
@@ -373,21 +401,19 @@ def write_shipto_data():
         ship = str(r[6] or "").strip()
         if not ship:
             continue
-        day = _day_of(r[3])
-        if day is None:
-            continue
         ch = norm_channel(r[5])
         mat = str(r[7])
         info = pm.get(mat, {}) or {}
         cat = info.get("c1") or info.get("g") or "Other"
         desc = info.get("d") or mat
+        day = _parse_day(r[3])
         labels.add(ship)
         facts[(ship, ch, year, month, cat, desc, day)] += val / 1e6
     wb.close()
     payload = {
         "shipTo": sorted(labels),
-        "facts": [[s, c, y, m, cat, sku, round(v, 6), dd]
-                  for (s, c, y, m, cat, sku, dd), v in facts.items()]
+        "facts": [[s, c, y, m, cat, sku, round(v, 6), day]
+                  for (s, c, y, m, cat, sku, day), v in facts.items()]
     }
     with open(SHIP_OUT, "w", encoding="utf-8", newline="") as fp:
         json.dump(payload, fp, ensure_ascii=False, separators=(",", ":"))

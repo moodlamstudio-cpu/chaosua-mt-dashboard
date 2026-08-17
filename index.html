@@ -149,13 +149,13 @@
   <div class="card"><h3><span>Category Performance</span><span class="head-actions"><span class="tag" id="tgCatPerf">Total</span><button class="export-btn" type="button" onclick="exportSection('category_performance')">Export Excel</button></span></h3><div class="perf-scroll cat-perf-scroll"><table id="catPerfTable"></table></div></div>
   <div class="card"><h3><span>All SKU Performance</span><span class="head-actions"><span class="tag" id="tgSku">Total</span><button class="export-btn" type="button" onclick="exportSection('sku')">Export Excel</button></span></h3><div class="perf-scroll sku-scroll"><table id="skuTable"></table></div></div>
   <div class="card"><h3><span>Sales by Channel — <span id="tgChRange">Jan–Aug 2026</span> (MB)</span><span class="head-actions"><span class="tag">All MT · vs LY</span><button class="export-btn" type="button" onclick="exportSection('channel')">Export Excel</button></span></h3><div id="chTable"></div></div>
-  <div class="card"><h3><span>ยอดขายตาม Ship-to party (MB)</span><span class="head-actions"><span id="shiptoHeaderActions"></span><span class="tag" id="tgShipTo">Total</span><button class="export-btn" type="button" onclick="exportSection('ship_to')">Export Excel</button></span></h3><div class="perf-scroll shipto-scroll"><table id="shipToTable"></table></div></div>
+  <div class="card"><h3><span>ยอดขายรายวันตาม Ship-to party — เดือนล่าสุด (MB)</span><span class="head-actions"><span id="shiptoHeaderActions"></span><span class="tag" id="tgShipTo">Total</span><button class="export-btn" type="button" onclick="exportSection('ship_to')">Export Excel</button></span></h3><div class="perf-scroll shipto-scroll"><table id="shipToTable"></table></div></div>
 </div>
 <footer>CHAOSUA . MT Sales Dashboard . Source: Dashboard Pivot</footer>
 </div>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/pptxgenjs@3.12.0/dist/pptxgen.bundle.js"></script>
-<script src="app.js?v=20260817v2"></script>
+<script src="app.js?v=20260817v3"></script>
 <script>
 /* ---- Client-side password gate (SHA-256 hash comparison; plaintext is NOT stored) ---- */
 (function(){

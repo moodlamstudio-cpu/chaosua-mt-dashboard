@@ -3,6 +3,7 @@ let D=null,S=null,charts={},cur="MT",selChans=["MAKRO","LOTUS'"],selFrom=1,selTo
 var viewYear=fy; // Year filter state; defaults to fy (2026) so the first-open view is unchanged.
 function num(v){return (v==null||isNaN(v))?0:Number(v);}
 function fmt(v){return (v==null||isNaN(v))?"-":Number(v).toLocaleString("en-US",{minimumFractionDigits:1,maximumFractionDigits:1});}
+// MB with 2 decimal places, used by the daily Ship-to party table.
 function fmt2(v){return (v==null||isNaN(v))?"-":Number(v).toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2});}
 function pct(a,b){a=num(a);b=num(b);if(!b)return null;return ((a-b)/b*100);}
 function destroy(id){if(charts[id]){charts[id].destroy();charts[id]=null;}}
@@ -28,7 +29,7 @@ function chartExportRows(id){var ch=charts[id];if(!ch)return [];var ds=ch.data.d
 function safeFilePart(s){return String(s||"").replace(/[^A-Za-z0-9_-]+/g,"_").replace(/^_+|_+$/g,"");}
 function exportSection(section){
   if(typeof XLSX==="undefined"){alert("Excel export library is not available. Please check your connection and refresh.");return;}
-  var names={annual:"Annual_Sales",monthly:"Monthly_Performance",monthly_table:"Monthly_Table",category:"Sales_by_Category",category_performance:"Category_Performance",sku:"SKU_Performance",channel:"Sales_by_Channel",ship_to:"Ship_to_by_Month"};
+  var names={annual:"Annual_Sales",monthly:"Monthly_Performance",monthly_table:"Monthly_Table",category:"Sales_by_Category",category_performance:"Category_Performance",sku:"SKU_Performance",channel:"Sales_by_Channel",ship_to:"Ship_to_Daily_Latest_Month"};
   var rows=[];
   if(section==="annual")rows=chartExportRows("cAnnual");
   else if(section==="monthly")rows=chartExportRows("cMonthly");
@@ -521,41 +522,42 @@ function drawChannelSummary(){
   el.innerHTML=h;
   Array.prototype.forEach.call(document.querySelectorAll(".chcard[data-ch]"),function(el2){el2.addEventListener("click",function(){selectChan(el2.getAttribute("data-ch"));});});
 }
-// Sales by Ship-to party DAY table (rows = ship-to, columns = DAY 1..last day
-// of the LATEST month that has data under the current filters, values in MB).
-// Driven by shipto_data.json facts (fact[7] = day) and responds to the same
-// Channel / Year / From-To / Category / SKU filters as the KPI Actual, so the
-// row totals reconcile with the Actual KPI under identical filters.
+// Sales by Ship-to party table (rows = ship-to, columns = calendar days in the
+// latest available month inside the current filters, values in MB).
+// Driven by shipto_data.json facts and responds to the same Channel / Year /
+// From-To / Category / SKU filters as the KPI Actual, so the row totals
+// reconcile with the Actual KPI under identical filters.
 function drawShipTo(){
   var el=document.getElementById("shipToTable");if(!el||!S)return;
   var selSet=shipToBasisSet(),from=num(selFrom),to=num(selTo),year=String(viewYear);
   var filterCat=activeCat,filterSku=activeSku;
-  var monthPresence={},byMon={};
+  var latestMonth=0;
   (S.facts||[]).forEach(function(r){
-    if(!selSet[r[1]])return;               // channel filter
-    if(String(r[2])!==year)return;         // year filter
-    var m=Number(r[3]);if(m<from||m>to)return; // month range filter
-    if(filterCat&&r[4]!==filterCat)return;  // category filter
-    if(filterSku&&r[5]!==filterSku)return;   // SKU filter
-    var nm=r[0],v=num(r[6]),dd=Number(r[7]);if(!dd||dd<1)dd=1; // fact[7] = day
-    var cum=byMon[m];if(!cum){cum=byMon[m]={rows:{},dayTotals:{},grand:0,maxDay:0};}
-    var row=cum.rows[nm];if(!row){row=cum.rows[nm]={name:nm,days:{},total:0};}
-    row.days[dd]=num(row.days[dd])+v;
-    row.total=num(row.total)+v;
-    cum.dayTotals[dd]=num(cum.dayTotals[dd])+v;
-    cum.grand=num(cum.grand)+v;
-    if(dd>cum.maxDay)cum.maxDay=dd;
-    monthPresence[m]=true;
+    if(!selSet[r[1]]||String(r[2])!==year)return;
+    var m=Number(r[3]);if(m<from||m>to)return;
+    if(filterCat&&r[4]!==filterCat)return;
+    if(filterSku&&r[5]!==filterSku)return;
+    if(Number(r[7])>=1&&Number(r[7])<=31&&m>latestMonth)latestMonth=m;
   });
-  // Columns are DAY 1..last day of the LATEST month that has data under the
-  // current filter, so the day table shows one month's daily MB per party.
-  var months=Object.keys(monthPresence).map(Number);
-  var latMon=months.length?Math.max.apply(null,months):0;
-  var cum=byMon[latMon]||{rows:{},dayTotals:{},grand:0,maxDay:1};
-  var rows=cum.rows,dayTotals=cum.dayTotals,grand=cum.grand,maxDay=cum.maxDay||1;
+  var daysInMonth=latestMonth?new Date(Number(year),latestMonth,0).getDate():0;
+  var rows={},dayTotals={},grand=0;
+  (S.facts||[]).forEach(function(r){
+    if(!selSet[r[1]])return;             // channel filter
+    if(String(r[2])!==year)return;       // year filter
+    var m=Number(r[3]);if(m!==latestMonth)return; // latest month in current range
+    if(filterCat&&r[4]!==filterCat)return; // category filter
+    if(filterSku&&r[5]!==filterSku)return;  // SKU filter
+    var day=Number(r[7]);if(day<1||day>daysInMonth)return;
+    var nm=r[0],v=num(r[6]);
+    var row=rows[nm];if(!row){row=rows[nm]={name:nm,days:{},total:0};}
+    row.days[day]=num(row.days[day])+v;
+    row.total=num(row.total)+v;
+    dayTotals[day]=num(dayTotals[day])+v;
+    grand=num(grand)+v;
+  });
   var names=Object.keys(rows).sort(function(a,b){return rows[b].total-rows[a].total;});
   var h='<thead><tr><th>Ship-to party ('+names.length+')</th>';
-  for(var day=1;day<=maxDay;day++)h+='<th class="num">'+day+'</th>';
+  for(var d=1;d<=daysInMonth;d++)h+='<th>'+d+'</th>';
   h+='<th>Total</th></tr></thead><tbody>';
   var show=(names.length<=400);
   if(!show)names=names.slice(0,400); // cap rendered rows; footer Total still sums all
@@ -566,12 +568,12 @@ function drawShipTo(){
     var cls=['st-row',on?'shipto-selected':''].join(' ');
     h+='<tr class="'+cls+'" tabindex="0" role="button" data-shipto="'+enc+'" aria-pressed="'+on+'" title="'+escAttr((on?"":"ดูเฉพาะ ")+(on?"คลิกอีกครั้งเพื่อแสดงยอดรวมทั้งหมด":nm))+'" style="cursor:pointer">';
     h+='<td style="text-align:left;white-space:normal">'+escHtml(row.name)+(on?' <span class="st-show">\u25bc</span>':'')+'</td>';
-    for(var day=1;day<=maxDay;day++)h+='<td>'+fmt2(row.days[day]||0)+'</td>';
+    for(var d=1;d<=daysInMonth;d++)h+='<td>'+fmt2(row.days[d]||0)+'</td>';
     h+='<td><b>'+fmt2(row.total)+'</b></td></tr>';
   });
-  if(!show)h+='<tr><td style="text-align:left" class="recon-row">Showing top 400 by sales; remaining ship-to parties included in Total.</td><td colspan="'+(maxDay+1)+'"></td></tr>';
+  if(!show)h+='<tr><td style="text-align:left" class="recon-row">Showing top 400 by sales; remaining ship-to parties included in Total.</td><td colspan="'+(daysInMonth+1)+'"></td></tr>';
   h+='</tbody><tfoot><tr class="total"><td style="text-align:left">Total</td>';
-  for(var day=1;day<=maxDay;day++)h+='<td>'+fmt2(dayTotals[day]||0)+'</td>';
+  for(var d=1;d<=daysInMonth;d++)h+='<td>'+fmt2(dayTotals[d]||0)+'</td>';
   h+='<td>'+fmt2(grand)+'</td></tr></tfoot>';
   setT("shipToTable",h);
   // Click a row to filter everything to that Ship-to; click again to clear.
@@ -580,7 +582,8 @@ function drawShipTo(){
     tr.addEventListener("click",pick);
     tr.addEventListener("keydown",function(e){if(e.key==="Enter"||e.key===" "){e.preventDefault();pick();}});
   });
-  setV("tgShipTo",(activeShipTo?("Ship-to \u2022 "+activeShipTo):(label()+" | "+MONTHS[(latMon?latMon:1)-1]+" day 1-"+maxDay+" Total "+fmt2(grand)+" MB")));
+  var monthLabel=latestMonth?(MONTHS[latestMonth-1]+" "+year):("No daily data "+year);
+  setV("tgShipTo",(activeShipTo?("Ship-to \u2022 "+activeShipTo):(monthLabel+" | Total "+fmt2(grand)+" MB")));
   var header=document.getElementById("shiptoHeaderActions");
   if(header){header.innerHTML=activeShipTo?(''+
     '<button type="button" class="export-btn st-clear" id="stClear" style="border-color:#e11d48;background:#fff1f2;color:#be123c">\u2715 \u0e40\u0e04\u0e25\u0e35\u0e22\u0e23\u0e4c\u0e01\u0e23\u0e2d\u0e07\u0e2a\u0e16\u0e32\u0e19\u0e17\u0e35\u0e48</button>'):'';
