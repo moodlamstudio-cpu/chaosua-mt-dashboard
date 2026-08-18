@@ -73,6 +73,7 @@
   #shipToTable tbody tr.st-row.shipto-selected td:first-child{background:#dbeafe;}
   .st-show{color:#2563eb;font-size:10px;margin-left:2px;}
   .st-clear{white-space:nowrap;}
+  .shipto-unit{background:#f1f5f9;border:1px solid var(--border);border-radius:7px;padding:4px 8px;font-size:11px;font-weight:700;color:#0f172a;}
 
   .chgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(185px,1fr));gap:14px;}
   @media(min-width:1100px){.chgrid{grid-template-columns:repeat(5,1fr);}}
@@ -149,13 +150,13 @@
   <div class="card"><h3><span>Category Performance</span><span class="head-actions"><span class="tag" id="tgCatPerf">Total</span><button class="export-btn" type="button" onclick="exportSection('category_performance')">Export Excel</button></span></h3><div class="perf-scroll cat-perf-scroll"><table id="catPerfTable"></table></div></div>
   <div class="card"><h3><span>All SKU Performance</span><span class="head-actions"><span class="tag" id="tgSku">Total</span><button class="export-btn" type="button" onclick="exportSection('sku')">Export Excel</button></span></h3><div class="perf-scroll sku-scroll"><table id="skuTable"></table></div></div>
   <div class="card"><h3><span>Sales by Channel — <span id="tgChRange">Jan–Aug 2026</span> (MB)</span><span class="head-actions"><span class="tag">All MT · vs LY</span><button class="export-btn" type="button" onclick="exportSection('channel')">Export Excel</button></span></h3><div id="chTable"></div></div>
-  <div class="card"><h3><span>ยอดขายรายวันตาม Ship-to party — เดือนล่าสุด (MB)</span><span class="head-actions"><span id="shiptoHeaderActions"></span><span class="tag" id="tgShipTo">Total</span><button class="export-btn" type="button" onclick="exportSection('ship_to')">Export Excel</button></span></h3><div class="perf-scroll shipto-scroll"><table id="shipToTable"></table></div></div>
+  <div class="card"><h3><span>ยอดขายรายสัปดาห์ตาม Ship-to party</span><span class="head-actions"><label for="shipToUnit" class="sr-only">หน่วยตารางรายสัปดาห์</label><select id="shipToUnit" class="shipto-unit" onchange="setShipToUnit(this.value)"><option value="ea">ชิ้น</option><option value="ton">ตัน</option><option value="baht">บาท</option><option value="mb" selected>ล้านบาท</option></select><span id="shiptoHeaderActions"></span><span class="tag" id="tgShipTo">Total</span><button class="export-btn" type="button" onclick="exportSection('ship_to')">Export Excel</button></span></h3><div class="perf-scroll shipto-scroll"><table id="shipToTable"></table></div></div>
 </div>
 <footer>CHAOSUA . MT Sales Dashboard . Source: Dashboard Pivot</footer>
 </div>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/pptxgenjs@3.12.0/dist/pptxgen.bundle.js"></script>
-<script src="app.js?v=20260817v3"></script>
+<script src="app.js?v=20260818v1"></script>
 <script>
 /* ---- Client-side password gate (SHA-256 hash comparison; plaintext is NOT stored) ---- */
 (function(){

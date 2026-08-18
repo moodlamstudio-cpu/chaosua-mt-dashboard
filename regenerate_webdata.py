@@ -376,7 +376,7 @@ def write_shipto_data():
     The raw Date column (index 3) carries day-level granularity for every month/year
     (stored as DD/MM/YYYY strings or datetime objects). Each fact is therefore
     bucketed per calendar day and written as:
-        [ship, chan, year, month, cat, sku, val, day]   (val in MB, day at tail)
+        [ship, chan, year, month, cat, sku, mb, day, ea, ton, baht, week]
     day is the day-of-month (1-31) or null when the source date is unreadable.
     Keeping day at index 7 (the tail) means every other fact-index used by the UI
     (ship=0, chan=1, year=2, month=3, cat=4, sku=5, val=6) is UNCHANGED, so all
@@ -386,7 +386,7 @@ def write_shipto_data():
     wb = load_workbook(SRC, read_only=True, data_only=True)
     pm = load_product_master(wb)
     ws = wb["Raw data"]
-    facts = defaultdict(float)
+    facts = defaultdict(lambda: [0.0, 0.0, 0.0, 0.0])
     labels = set()
     for i, r in enumerate(ws.iter_rows(values_only=True)):
         if i == 0:
@@ -394,6 +394,8 @@ def write_shipto_data():
         try:
             year, month = int(r[0]), int(r[1])
             val = float(r[11] or 0)
+            ea = float(r[8] or 0)
+            ton = float(r[10] or 0)
         except (TypeError, ValueError, IndexError):
             continue
         if not 1 <= month <= 12 or val == 0:
@@ -408,12 +410,21 @@ def write_shipto_data():
         desc = info.get("d") or mat
         day = _parse_day(r[3])
         labels.add(ship)
-        facts[(ship, ch, year, month, cat, desc, day)] += val / 1e6
+        try:
+            week = int(r[2])
+        except (TypeError, ValueError, IndexError):
+            week = 0
+        bucket = facts[(ship, ch, year, month, cat, desc, day, week)]
+        bucket[0] += val / 1e6
+        bucket[1] += ea
+        bucket[2] += ton
+        bucket[3] += val
     wb.close()
     payload = {
         "shipTo": sorted(labels),
-        "facts": [[s, c, y, m, cat, sku, round(v, 6), day]
-                  for (s, c, y, m, cat, sku, day), v in facts.items()]
+        "facts": [[s, c, y, m, cat, sku, round(v[0], 6), day,
+                   round(v[1], 3), round(v[2], 6), round(v[3], 2), week]
+                  for (s, c, y, m, cat, sku, day, week), v in facts.items()]
     }
     with open(SHIP_OUT, "w", encoding="utf-8", newline="") as fp:
         json.dump(payload, fp, ensure_ascii=False, separators=(",", ":"))

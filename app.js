@@ -20,6 +20,7 @@ var CATCOLR=["#F2E9D8","#59718A","#2F6F6D","#E07A47","#D4A72C","#8FA68F","#C47C8
 function dark(h){var n=parseInt(h.slice(1),16);return "rgb("+Math.max(0,((n>>16)&255)-35)+","+Math.max(0,((n>>8)&255)-35)+","+Math.max(0,(n&255)-35)+")";}
 var activeCat=null,activeSku=null,kpiPick=null;
 var activeShipTo=null; // clicked Ship-to party linked filter: drives KPI/charts until re-clicked to clear
+var shipToUnit="mb"; // table-local display unit; does not alter any other dashboard visual
 var catSort=null,skuSort=null; // {col:'ly'|'actual'|'growth'|'pct'|'contrib', dir:'desc'|'asc'} or null
 var channelExportRows=[];
 function exportContext(){return {Channel:label(),From:MONTHS[selFrom-1],To:MONTHS[selTo-1],Year:viewYear,Category:activeCat||"All",SKU:activeSku||"All",ShipTo:activeShipTo||"All",LatestSales:salesDateTxt()};}
@@ -29,7 +30,7 @@ function chartExportRows(id){var ch=charts[id];if(!ch)return [];var ds=ch.data.d
 function safeFilePart(s){return String(s||"").replace(/[^A-Za-z0-9_-]+/g,"_").replace(/^_+|_+$/g,"");}
 function exportSection(section){
   if(typeof XLSX==="undefined"){alert("Excel export library is not available. Please check your connection and refresh.");return;}
-  var names={annual:"Annual_Sales",monthly:"Monthly_Performance",monthly_table:"Monthly_Table",category:"Sales_by_Category",category_performance:"Category_Performance",sku:"SKU_Performance",channel:"Sales_by_Channel",ship_to:"Ship_to_Daily_Latest_Month"};
+  var names={annual:"Annual_Sales",monthly:"Monthly_Performance",monthly_table:"Monthly_Table",category:"Sales_by_Category",category_performance:"Category_Performance",sku:"SKU_Performance",channel:"Sales_by_Channel",ship_to:"Ship_to_Weekly"};
   var rows=[];
   if(section==="annual")rows=chartExportRows("cAnnual");
   else if(section==="monthly")rows=chartExportRows("cMonthly");
@@ -522,8 +523,8 @@ function drawChannelSummary(){
   el.innerHTML=h;
   Array.prototype.forEach.call(document.querySelectorAll(".chcard[data-ch]"),function(el2){el2.addEventListener("click",function(){selectChan(el2.getAttribute("data-ch"));});});
 }
-// Sales by Ship-to party table (rows = ship-to, columns = calendar days in the
-// latest available month inside the current filters, values in MB).
+// Sales by Ship-to party table (rows = ship-to, columns = source WK numbers
+// inside the selected month range). Unit selector is local to this table.
 // Driven by shipto_data.json facts and responds to the same Channel / Year /
 // From-To / Category / SKU filters as the KPI Actual, so the row totals
 // reconcile with the Actual KPI under identical filters.
@@ -531,33 +532,27 @@ function drawShipTo(){
   var el=document.getElementById("shipToTable");if(!el||!S)return;
   var selSet=shipToBasisSet(),from=num(selFrom),to=num(selTo),year=String(viewYear);
   var filterCat=activeCat,filterSku=activeSku;
-  var latestMonth=0;
-  (S.facts||[]).forEach(function(r){
-    if(!selSet[r[1]]||String(r[2])!==year)return;
-    var m=Number(r[3]);if(m<from||m>to)return;
-    if(filterCat&&r[4]!==filterCat)return;
-    if(filterSku&&r[5]!==filterSku)return;
-    if(Number(r[7])>=1&&Number(r[7])<=31&&m>latestMonth)latestMonth=m;
-  });
-  var daysInMonth=latestMonth?new Date(Number(year),latestMonth,0).getDate():0;
-  var rows={},dayTotals={},grand=0;
+  var unitMeta={ea:{label:"ชิ้น",idx:8},ton:{label:"ตัน",idx:9},baht:{label:"บาท",idx:10},mb:{label:"ล้านบาท",idx:6}};
+  var unit=unitMeta[shipToUnit]||unitMeta.mb;
+  var rows={},weekTotals={},weekSet={},grand=0;
   (S.facts||[]).forEach(function(r){
     if(!selSet[r[1]])return;             // channel filter
     if(String(r[2])!==year)return;       // year filter
-    var m=Number(r[3]);if(m!==latestMonth)return; // latest month in current range
+    var m=Number(r[3]);if(m<from||m>to)return;
     if(filterCat&&r[4]!==filterCat)return; // category filter
     if(filterSku&&r[5]!==filterSku)return;  // SKU filter
-    var day=Number(r[7]);if(day<1||day>daysInMonth)return;
-    var nm=r[0],v=num(r[6]);
-    var row=rows[nm];if(!row){row=rows[nm]={name:nm,days:{},total:0};}
-    row.days[day]=num(row.days[day])+v;
+    var week=Number(r[11]);if(week<1||week>53)return;
+    var nm=r[0],v=num(r[unit.idx]);
+    var row=rows[nm];if(!row){row=rows[nm]={name:nm,weeks:{},total:0};}
+    row.weeks[week]=num(row.weeks[week])+v;
     row.total=num(row.total)+v;
-    dayTotals[day]=num(dayTotals[day])+v;
+    weekTotals[week]=num(weekTotals[week])+v;weekSet[week]=1;
     grand=num(grand)+v;
   });
+  var weeks=Object.keys(weekSet).map(Number).sort(function(a,b){return a-b;});
   var names=Object.keys(rows).sort(function(a,b){return rows[b].total-rows[a].total;});
   var h='<thead><tr><th>Ship-to party ('+names.length+')</th>';
-  for(var d=1;d<=daysInMonth;d++)h+='<th>'+d+'</th>';
+  weeks.forEach(function(w){h+='<th>WK '+w+'</th>';});
   h+='<th>Total</th></tr></thead><tbody>';
   var show=(names.length<=400);
   if(!show)names=names.slice(0,400); // cap rendered rows; footer Total still sums all
@@ -568,13 +563,13 @@ function drawShipTo(){
     var cls=['st-row',on?'shipto-selected':''].join(' ');
     h+='<tr class="'+cls+'" tabindex="0" role="button" data-shipto="'+enc+'" aria-pressed="'+on+'" title="'+escAttr((on?"":"ดูเฉพาะ ")+(on?"คลิกอีกครั้งเพื่อแสดงยอดรวมทั้งหมด":nm))+'" style="cursor:pointer">';
     h+='<td style="text-align:left;white-space:normal">'+escHtml(row.name)+(on?' <span class="st-show">\u25bc</span>':'')+'</td>';
-    for(var d=1;d<=daysInMonth;d++)h+='<td>'+fmt2(row.days[d]||0)+'</td>';
-    h+='<td><b>'+fmt2(row.total)+'</b></td></tr>';
+    weeks.forEach(function(w){h+='<td>'+shipToFmt(row.weeks[w]||0)+'</td>';});
+    h+='<td><b>'+shipToFmt(row.total)+'</b></td></tr>';
   });
-  if(!show)h+='<tr><td style="text-align:left" class="recon-row">Showing top 400 by sales; remaining ship-to parties included in Total.</td><td colspan="'+(daysInMonth+1)+'"></td></tr>';
+  if(!show)h+='<tr><td style="text-align:left" class="recon-row">Showing top 400 by sales; remaining ship-to parties included in Total.</td><td colspan="'+(weeks.length+1)+'"></td></tr>';
   h+='</tbody><tfoot><tr class="total"><td style="text-align:left">Total</td>';
-  for(var d=1;d<=daysInMonth;d++)h+='<td>'+fmt2(dayTotals[d]||0)+'</td>';
-  h+='<td>'+fmt2(grand)+'</td></tr></tfoot>';
+  weeks.forEach(function(w){h+='<td>'+shipToFmt(weekTotals[w]||0)+'</td>';});
+  h+='<td>'+shipToFmt(grand)+'</td></tr></tfoot>';
   setT("shipToTable",h);
   // Click a row to filter everything to that Ship-to; click again to clear.
   Array.prototype.forEach.call(document.querySelectorAll("#shipToTable tbody tr.st-row"),function(tr){
@@ -582,13 +577,15 @@ function drawShipTo(){
     tr.addEventListener("click",pick);
     tr.addEventListener("keydown",function(e){if(e.key==="Enter"||e.key===" "){e.preventDefault();pick();}});
   });
-  var monthLabel=latestMonth?(MONTHS[latestMonth-1]+" "+year):("No daily data "+year);
-  setV("tgShipTo",(activeShipTo?("Ship-to \u2022 "+activeShipTo):(monthLabel+" | Total "+fmt2(grand)+" MB")));
+  var rangeLabel=MONTHS[from-1]+"–"+MONTHS[to-1]+" "+year;
+  setV("tgShipTo",(activeShipTo?("Ship-to \u2022 "+activeShipTo):(rangeLabel+" | Total "+shipToFmt(grand)+" "+unit.label)));
   var header=document.getElementById("shiptoHeaderActions");
   if(header){header.innerHTML=activeShipTo?(''+
     '<button type="button" class="export-btn st-clear" id="stClear" style="border-color:#e11d48;background:#fff1f2;color:#be123c">\u2715 \u0e40\u0e04\u0e25\u0e35\u0e22\u0e23\u0e4c\u0e01\u0e23\u0e2d\u0e07\u0e2a\u0e16\u0e32\u0e19\u0e17\u0e35\u0e48</button>'):'';
     var clr=header.querySelector("#stClear");if(clr)clr.onclick=function(){toggleShipTo(activeShipTo);};}
 }
+function shipToFmt(v){return Number(v||0).toLocaleString("en-US",{minimumFractionDigits:shipToUnit==="ea"?0:2,maximumFractionDigits:shipToUnit==="ea"?0:2});}
+function setShipToUnit(v){if(!({ea:1,ton:1,baht:1,mb:1})[v])return;shipToUnit=v;drawShipTo();}
 function toggleShipTo(name){activeShipTo=(activeShipTo===name)?null:name;kpiPick=null;renderAll();}
 function escHtml(s){return String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");}
 function escAttr(s){return escHtml(String(s==null?"":s).replace(/'/g,"&#39;"));}
