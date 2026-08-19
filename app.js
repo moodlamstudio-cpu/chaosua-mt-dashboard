@@ -43,8 +43,7 @@ function exportSection(section){
   else if(section==="ship_to"){rows=tableExportRows("shipToTable");
     var colHdr=rows.length?rows[0]:[];if(colHdr.length)colHdr[0]="Ship-to party";
   }
-  else if(section==="sku_weekly"){rows=tableExportRows("skuWeeklyTable");
-    var skuHdr=rows.length?rows[0]:[];if(skuHdr.length)skuHdr[0]="Material / SKU";
+  else if(section==="sku_weekly"){buildSkuWeeklyExportRows();rows=skuWeeklyExportRows;
   }
   if(!rows.length){alert("No data available for export.");return;}
   var wb=XLSX.utils.book_new(),ws=XLSX.utils.aoa_to_sheet(rows),ctx=exportContext(),meta=[["Filter","Value"]];Object.keys(ctx).forEach(function(k){meta.push([k,ctx[k]]);});
@@ -621,7 +620,7 @@ function drawSkuWeekly(){
   if(!show)keys=keys.slice(0,400);
   keys.forEach(function(k){
     var row=rows[k],label=(row.material?row.material+" ":"")+row.name;
-    h+='<tr><td style="text-align:left;white-space:normal">'+escHtml(label)+'</td>';
+    h+='<tr data-material="'+escAttr(row.material)+'" data-name="'+escAttr(row.name)+'"><td style="text-align:left;white-space:normal">'+escHtml(label)+'</td>';
     weeks.forEach(function(w){h+='<td>'+weeklyFmt(row.weeks[w]||0,skuWeeklyUnit)+'</td>';});
     h+='<td><b>'+weeklyFmt(row.total,skuWeeklyUnit)+'</b></td></tr>';
   });
@@ -653,6 +652,36 @@ function syncSkuWeeklyScroll(){
   }
 }
 window.addEventListener("resize",syncSkuWeeklyScroll);
+var skuWeeklyExportRows=[];
+// Build the Export rows for the SKU weekly card: split Material / SKU name into
+// two separate columns (page display keeps them combined in one cell; only the
+// exported .xlsx separates them). Re-reads the current on-screen rows via the
+// per-row data-material / data-name attributes so it stays in sync with the
+// visible filters/unit.
+function buildSkuWeeklyExportRows(){
+  skuWeeklyExportRows=[];
+  var t=document.getElementById("skuWeeklyTable");
+  if(!t)return;
+  var body=t.querySelector("tbody");
+  var weeks=[];
+  var hdrRow=t.querySelector("thead tr");
+  if(hdrRow){Array.prototype.forEach.call(hdrRow.querySelectorAll("th"),function(th,i){
+    if(i===0)return; weeks.push((th.textContent||"").trim());
+  });}
+  var header=["Material","SKU"].concat(weeks);
+  skuWeeklyExportRows.push(header);
+  if(!body)return;
+  Array.prototype.forEach.call(body.querySelectorAll("tr"),function(tr){
+    var mat=tr.getAttribute("data-material")||"";
+    var name=tr.getAttribute("data-name")||"";
+    // rebuild numeric cells from the visible td values in order (skip the
+    // combined Material / SKU first cell)
+    var vals=[];
+    Array.prototype.forEach.call(tr.querySelectorAll("td"),function(td,i){ if(i>0) vals.push((td.textContent||"").trim()); });
+    var row=[mat,name].concat(vals);
+    skuWeeklyExportRows.push(row);
+  });
+}
 function toggleShipTo(name){activeShipTo=(activeShipTo===name)?null:name;kpiPick=null;renderAll();}
 function escHtml(s){return String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");}
 function escAttr(s){return escHtml(String(s==null?"":s).replace(/'/g,"&#39;"));}
