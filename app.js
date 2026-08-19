@@ -1,5 +1,5 @@
 ﻿const MONTHS=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
-let D=null,S=null,charts={},cur="MT",selChans=["MAKRO","LOTUS'"],selFrom=1,selTo=8,lastClosed=8,fy=2026;
+let D=null,S=null,SW=null,charts={},cur="MT",selChans=["MAKRO","LOTUS'"],selFrom=1,selTo=8,lastClosed=8,fy=2026;
 var viewYear=fy; // Year filter state; defaults to fy (2026) so the first-open view is unchanged.
 function num(v){return (v==null||isNaN(v))?0:Number(v);}
 function fmt(v){return (v==null||isNaN(v))?"-":Number(v).toLocaleString("en-US",{minimumFractionDigits:1,maximumFractionDigits:1});}
@@ -21,6 +21,7 @@ function dark(h){var n=parseInt(h.slice(1),16);return "rgb("+Math.max(0,((n>>16)
 var activeCat=null,activeSku=null,kpiPick=null;
 var activeShipTo=null; // clicked Ship-to party linked filter: drives KPI/charts until re-clicked to clear
 var shipToUnit="mb"; // table-local display unit; does not alter any other dashboard visual
+var skuWeeklyUnit="mb",skuWeeklySearch=""; // local display/search state for the weekly SKU table
 var catSort=null,skuSort=null; // {col:'ly'|'actual'|'growth'|'pct'|'contrib', dir:'desc'|'asc'} or null
 var channelExportRows=[];
 function exportContext(){return {Channel:label(),From:MONTHS[selFrom-1],To:MONTHS[selTo-1],Year:viewYear,Category:activeCat||"All",SKU:activeSku||"All",ShipTo:activeShipTo||"All",LatestSales:salesDateTxt()};}
@@ -30,7 +31,7 @@ function chartExportRows(id){var ch=charts[id];if(!ch)return [];var ds=ch.data.d
 function safeFilePart(s){return String(s||"").replace(/[^A-Za-z0-9_-]+/g,"_").replace(/^_+|_+$/g,"");}
 function exportSection(section){
   if(typeof XLSX==="undefined"){alert("Excel export library is not available. Please check your connection and refresh.");return;}
-  var names={annual:"Annual_Sales",monthly:"Monthly_Performance",monthly_table:"Monthly_Table",category:"Sales_by_Category",category_performance:"Category_Performance",sku:"SKU_Performance",channel:"Sales_by_Channel",ship_to:"Ship_to_Weekly"};
+  var names={annual:"Annual_Sales",monthly:"Monthly_Performance",monthly_table:"Monthly_Table",category:"Sales_by_Category",category_performance:"Category_Performance",sku:"SKU_Performance",channel:"Sales_by_Channel",ship_to:"Ship_to_Weekly",sku_weekly:"SKU_Weekly"};
   var rows=[];
   if(section==="annual")rows=chartExportRows("cAnnual");
   else if(section==="monthly")rows=chartExportRows("cMonthly");
@@ -41,6 +42,9 @@ function exportSection(section){
   else if(section==="channel"){rows=[["Channel","Actual (MB)","Contribution","LY 2025 (MB)","Gap (MB)","Growth vs LY"]];channelExportRows.forEach(function(r){rows.push([r.label,r.actual,r.contribution/100,r.ly,r.gap,r.growth==null?"":r.growth/100]);});}
   else if(section==="ship_to"){rows=tableExportRows("shipToTable");
     var colHdr=rows.length?rows[0]:[];if(colHdr.length)colHdr[0]="Ship-to party";
+  }
+  else if(section==="sku_weekly"){rows=tableExportRows("skuWeeklyTable");
+    var skuHdr=rows.length?rows[0]:[];if(skuHdr.length)skuHdr[0]="Material / SKU";
   }
   if(!rows.length){alert("No data available for export.");return;}
   var wb=XLSX.utils.book_new(),ws=XLSX.utils.aoa_to_sheet(rows),ctx=exportContext(),meta=[["Filter","Value"]];Object.keys(ctx).forEach(function(k){meta.push([k,ctx[k]]);});
@@ -186,8 +190,8 @@ function breakdownMaps(name){
 function shipToLabel(){return activeShipTo?("Ship-to \u2022 "+(activeShipTo||"")):label();}
 
 function load(){
- Promise.all([fetch("data_channels.json?v="+Date.now()).then(r=>r.json()),fetch("shipto_data.json?v="+Date.now()).then(r=>r.json())]).then(function(res){
-   D=res[0];S=res[1];lastClosed=D._lastClosed||8;fy=2026;
+ Promise.all([fetch("data_channels.json?v="+Date.now()).then(r=>r.json()),fetch("shipto_data.json?v="+Date.now()).then(r=>r.json()),fetch("sku_weekly_data.json?v="+Date.now()).then(r=>r.json()).catch(function(){return null;})]).then(function(res){
+   D=res[0];S=res[1];SW=res[2];lastClosed=D._lastClosed||8;fy=2026;
    // channels
    var sc=document.getElementById("selChannel");sc.innerHTML="";
    var allChannelIds=(D._channels||[]).filter(function(ch){return ch.id!=="MT";}).map(function(ch){return ch.id;});
@@ -273,7 +277,7 @@ function renderAll(){
     else{setT("kAOP","\u2014");setT("kAOPgap","");setT("kAOPpc","");setT("kAOPcmp",histYear2?"No planning for selected year":"No AOP data");}
     setV("hDate",salesDateTxt());
     drawAnnual();drawMonthly();drawTable();
-    drawCategory(c);drawSku(c);drawCategoryPerformance(c);drawChannelSummary();drawShipTo();
+    drawCategory(c);drawSku(c);drawCategoryPerformance(c);drawChannelSummary();drawShipTo();drawSkuWeekly();
     if(kpiPick)applyKpiPick();
   }catch(e){setT("tgM","ERR: "+e.message);}
 }
@@ -584,8 +588,57 @@ function drawShipTo(){
     '<button type="button" class="export-btn st-clear" id="stClear" style="border-color:#e11d48;background:#fff1f2;color:#be123c">\u2715 \u0e40\u0e04\u0e25\u0e35\u0e22\u0e23\u0e4c\u0e01\u0e23\u0e2d\u0e07\u0e2a\u0e16\u0e32\u0e19\u0e17\u0e35\u0e48</button>'):'';
     var clr=header.querySelector("#stClear");if(clr)clr.onclick=function(){toggleShipTo(activeShipTo);};}
 }
+function drawSkuWeekly(){
+  var el=document.getElementById("skuWeeklyTable");if(!el)return;
+  if(!SW||!SW.facts){setT("skuWeeklyTable","");setV("tgSkuWeekly","No data");return;}
+  var selSet=shipToBasisSet(),from=num(selFrom),to=num(selTo),year=String(viewYear);
+  var filterCat=activeCat,filterSku=activeSku,search=String(skuWeeklySearch||"").trim().toLowerCase();
+  var unitMeta={ea:{label:"ชิ้น",idx:6},ton:{label:"ตัน",idx:7},baht:{label:"บาท",idx:8},mb:{label:"ล้านบาท",idx:9}};
+  var unit=unitMeta[skuWeeklyUnit]||unitMeta.mb;
+  var rows={},weekTotals={},weekSet={},grand=0;
+  (SW.facts||[]).forEach(function(r){
+    if(!selSet[r[2]])return;
+    if(String(r[3])!==year)return;
+    var m=Number(r[4]);if(m<from||m>to)return;
+    if(filterCat&&r[5]!==filterCat)return;
+    if(filterSku&&r[1]!==filterSku)return;
+    var mat=String(r[0]||""),desc=String(r[1]||"");
+    if(search&&mat.toLowerCase().indexOf(search)<0&&desc.toLowerCase().indexOf(search)<0)return;
+    var week=Number(r[10]);if(week<1||week>53)return;
+    var key=mat+"|"+desc,v=num(r[unit.idx]);
+    var row=rows[key];if(!row){row=rows[key]={material:mat,name:desc,weeks:{},total:0};}
+    row.weeks[week]=num(row.weeks[week])+v;
+    row.total=num(row.total)+v;
+    weekTotals[week]=num(weekTotals[week])+v;weekSet[week]=1;
+    grand=num(grand)+v;
+  });
+  var weeks=Object.keys(weekSet).map(Number).sort(function(a,b){return a-b;});
+  var keys=Object.keys(rows).sort(function(a,b){return rows[b].total-rows[a].total;});
+  var h='<thead><tr><th>Material / SKU ('+keys.length+')</th>';
+  weeks.forEach(function(w){h+='<th>WK '+w+'</th>';});
+  h+='<th>Total</th></tr></thead><tbody>';
+  var show=(keys.length<=400||search);
+  if(!show)keys=keys.slice(0,400);
+  keys.forEach(function(k){
+    var row=rows[k],label=(row.material?row.material+" ":"")+row.name;
+    h+='<tr><td style="text-align:left;white-space:normal">'+escHtml(label)+'</td>';
+    weeks.forEach(function(w){h+='<td>'+weeklyFmt(row.weeks[w]||0,skuWeeklyUnit)+'</td>';});
+    h+='<td><b>'+weeklyFmt(row.total,skuWeeklyUnit)+'</b></td></tr>';
+  });
+  if(!show)h+='<tr><td style="text-align:left" class="recon-row">Showing top 400 by sales; remaining SKUs included in Total. Use Material search to narrow.</td><td colspan="'+(weeks.length+1)+'"></td></tr>';
+  if(!keys.length)h+='<tr><td style="text-align:left" class="recon-row">No SKU found for the current filters.</td><td colspan="'+(weeks.length+1)+'"></td></tr>';
+  h+='</tbody><tfoot><tr class="total"><td style="text-align:left">Total</td>';
+  weeks.forEach(function(w){h+='<td>'+weeklyFmt(weekTotals[w]||0,skuWeeklyUnit)+'</td>';});
+  h+='<td>'+weeklyFmt(grand,skuWeeklyUnit)+'</td></tr></tfoot>';
+  setT("skuWeeklyTable",h);
+  var rangeLabel=MONTHS[from-1]+"–"+MONTHS[to-1]+" "+year;
+  setV("tgSkuWeekly",rangeLabel+" | Total "+weeklyFmt(grand,skuWeeklyUnit)+" "+unit.label+(search?" | Search "+skuWeeklySearch:""));
+}
 function shipToFmt(v){return Number(v||0).toLocaleString("en-US",{minimumFractionDigits:shipToUnit==="ea"?0:2,maximumFractionDigits:shipToUnit==="ea"?0:2});}
+function weeklyFmt(v,unitKey){return Number(v||0).toLocaleString("en-US",{minimumFractionDigits:unitKey==="ea"?0:2,maximumFractionDigits:unitKey==="ea"?0:2});}
 function setShipToUnit(v){if(!({ea:1,ton:1,baht:1,mb:1})[v])return;shipToUnit=v;drawShipTo();}
+function setSkuWeeklyUnit(v){if(!({ea:1,ton:1,baht:1,mb:1})[v])return;skuWeeklyUnit=v;drawSkuWeekly();}
+function setSkuWeeklySearch(v){skuWeeklySearch=v||"";drawSkuWeekly();}
 function toggleShipTo(name){activeShipTo=(activeShipTo===name)?null:name;kpiPick=null;renderAll();}
 function escHtml(s){return String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");}
 function escAttr(s){return escHtml(String(s==null?"":s).replace(/'/g,"&#39;"));}
