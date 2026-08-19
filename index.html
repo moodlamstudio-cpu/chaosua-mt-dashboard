@@ -52,6 +52,8 @@
   .perf-scroll{overflow:auto;border:1px solid #f1f5f9;border-radius:8px;}
   .sku-scroll{max-height:420px;scrollbar-gutter:stable;}
   .shipto-scroll{max-height:460px;overflow:auto;scrollbar-gutter:stable;border:1px solid #f1f5f9;border-radius:8px;}
+  .weekly-bottom-scroll{overflow-x:auto;overflow-y:hidden;height:18px;margin-top:6px;border:1px solid #e2e8f0;border-radius:8px;background:#f8fafc;}
+  .weekly-bottom-scroll>div{height:1px;}
   #shipToTable th:first-child,#shipToTable td:first-child,#skuWeeklyTable th:first-child,#skuWeeklyTable td:first-child{position:sticky;left:0;background:#fff;box-shadow:1px 0 0 var(--border);min-width:220px;max-width:380px;}
   #shipToTable thead th:first-child,#skuWeeklyTable thead th:first-child{z-index:5;}
   #shipToTable tbody td:first-child,#skuWeeklyTable tbody td:first-child{z-index:1;}
@@ -152,13 +154,13 @@
   <div class="card"><h3><span>All SKU Performance</span><span class="head-actions"><span class="tag" id="tgSku">Total</span><button class="export-btn" type="button" onclick="exportSection('sku')">Export Excel</button></span></h3><div class="perf-scroll sku-scroll"><table id="skuTable"></table></div></div>
   <div class="card"><h3><span>Sales by Channel — <span id="tgChRange">Jan–Aug 2026</span> (MB)</span><span class="head-actions"><span class="tag">All MT · vs LY</span><button class="export-btn" type="button" onclick="exportSection('channel')">Export Excel</button></span></h3><div id="chTable"></div></div>
   <div class="card"><h3><span>ยอดขายรายสัปดาห์ตาม Ship-to party</span><span class="head-actions"><label for="shipToUnit" class="sr-only">หน่วยตารางรายสัปดาห์</label><select id="shipToUnit" class="shipto-unit" onchange="setShipToUnit(this.value)"><option value="ea">ชิ้น</option><option value="ton">ตัน</option><option value="baht">บาท</option><option value="mb" selected>ล้านบาท</option></select><span id="shiptoHeaderActions"></span><span class="tag" id="tgShipTo">Total</span><button class="export-btn" type="button" onclick="exportSection('ship_to')">Export Excel</button></span></h3><div class="perf-scroll shipto-scroll"><table id="shipToTable"></table></div></div>
-  <div class="card"><h3><span>ยอดขายราย SKU</span><span class="head-actions"><label for="skuWeeklySearch" class="sr-only">ค้นหา Material</label><input id="skuWeeklySearch" class="weekly-search" type="search" inputmode="numeric" placeholder="ค้นหา Material" oninput="setSkuWeeklySearch(this.value)"><label for="skuWeeklyUnit" class="sr-only">หน่วยตารางราย SKU</label><select id="skuWeeklyUnit" class="shipto-unit" onchange="setSkuWeeklyUnit(this.value)"><option value="ea">ชิ้น</option><option value="ton">ตัน</option><option value="baht">บาท</option><option value="mb" selected>ล้านบาท</option></select><span class="tag" id="tgSkuWeekly">Total</span><button class="export-btn" type="button" onclick="exportSection('sku_weekly')">Export Excel</button></span></h3><div class="perf-scroll shipto-scroll"><table id="skuWeeklyTable"></table></div></div>
+  <div class="card"><h3><span>ยอดขายราย SKU</span><span class="head-actions"><label for="skuWeeklySearch" class="sr-only">ค้นหา Material</label><input id="skuWeeklySearch" class="weekly-search" type="search" inputmode="numeric" placeholder="ค้นหา Material" oninput="setSkuWeeklySearch(this.value)"><label for="skuWeeklyUnit" class="sr-only">หน่วยตารางราย SKU</label><select id="skuWeeklyUnit" class="shipto-unit" onchange="setSkuWeeklyUnit(this.value)"><option value="ea">ชิ้น</option><option value="ton">ตัน</option><option value="baht">บาท</option><option value="mb" selected>ล้านบาท</option></select><span class="tag" id="tgSkuWeekly">Total</span><button class="export-btn" type="button" onclick="exportSection('sku_weekly')">Export Excel</button></span></h3><div id="skuWeeklyViewport" class="perf-scroll shipto-scroll"><table id="skuWeeklyTable"></table></div><div id="skuWeeklyBottomScroll" class="weekly-bottom-scroll" aria-label="เลื่อนดูสัปดาห์อื่น"><div id="skuWeeklyBottomScrollInner"></div></div></div>
 </div>
 <footer>CHAOSUA . MT Sales Dashboard . Source: Dashboard Pivot</footer>
 </div>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/pptxgenjs@3.12.0/dist/pptxgen.bundle.js"></script>
-<script src="app.js?v=20260819v1"></script>
+<script src="app.js?v=20260819v2"></script>
 <script>
 /* ---- Client-side password gate (SHA-256 hash comparison; plaintext is NOT stored) ---- */
 (function(){

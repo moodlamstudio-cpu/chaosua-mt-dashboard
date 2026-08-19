@@ -631,6 +631,7 @@ function drawSkuWeekly(){
   weeks.forEach(function(w){h+='<td>'+weeklyFmt(weekTotals[w]||0,skuWeeklyUnit)+'</td>';});
   h+='<td>'+weeklyFmt(grand,skuWeeklyUnit)+'</td></tr></tfoot>';
   setT("skuWeeklyTable",h);
+  syncSkuWeeklyScroll();
   var rangeLabel=MONTHS[from-1]+"–"+MONTHS[to-1]+" "+year;
   setV("tgSkuWeekly",rangeLabel+" | Total "+weeklyFmt(grand,skuWeeklyUnit)+" "+unit.label+(search?" | Search "+skuWeeklySearch:""));
 }
@@ -639,6 +640,19 @@ function weeklyFmt(v,unitKey){return Number(v||0).toLocaleString("en-US",{minimu
 function setShipToUnit(v){if(!({ea:1,ton:1,baht:1,mb:1})[v])return;shipToUnit=v;drawShipTo();}
 function setSkuWeeklyUnit(v){if(!({ea:1,ton:1,baht:1,mb:1})[v])return;skuWeeklyUnit=v;drawSkuWeekly();}
 function setSkuWeeklySearch(v){skuWeeklySearch=v||"";drawSkuWeekly();}
+function syncSkuWeeklyScroll(){
+  var viewport=document.getElementById("skuWeeklyViewport"),bar=document.getElementById("skuWeeklyBottomScroll"),inner=document.getElementById("skuWeeklyBottomScrollInner"),table=document.getElementById("skuWeeklyTable");
+  if(!viewport||!bar||!inner||!table)return;
+  inner.style.width=Math.max(table.scrollWidth,viewport.clientWidth)+"px";
+  bar.style.display=table.scrollWidth>viewport.clientWidth?"block":"none";
+  bar.scrollLeft=viewport.scrollLeft;
+  if(!bar._skuBound){
+    bar.addEventListener("scroll",function(){if(!bar._syncing){viewport._syncing=1;viewport.scrollLeft=bar.scrollLeft;viewport._syncing=0;}});
+    viewport.addEventListener("scroll",function(){if(!viewport._syncing){bar._syncing=1;bar.scrollLeft=viewport.scrollLeft;bar._syncing=0;}});
+    bar._skuBound=1;
+  }
+}
+window.addEventListener("resize",syncSkuWeeklyScroll);
 function toggleShipTo(name){activeShipTo=(activeShipTo===name)?null:name;kpiPick=null;renderAll();}
 function escHtml(s){return String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");}
 function escAttr(s){return escHtml(String(s==null?"":s).replace(/'/g,"&#39;"));}
