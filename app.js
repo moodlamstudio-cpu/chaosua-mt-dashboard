@@ -25,8 +25,9 @@ var skuWeeklyUnit="mb",skuWeeklySearch=""; // local display/search state for the
 var catSort=null,skuSort=null; // {col:'ly'|'actual'|'growth'|'pct'|'contrib', dir:'desc'|'asc'} or null
 var channelExportRows=[];
 function exportContext(){return {Channel:label(),From:MONTHS[selFrom-1],To:MONTHS[selTo-1],Year:viewYear,Category:activeCat||"All",SKU:activeSku||"All",ShipTo:activeShipTo||"All",LatestSales:salesDateTxt()};}
-function exportCell(v){var s=String(v==null?"":v).trim().replace(/\s*[▼▲]\s*/g,"").replace(/, sorted.*$/i,"");if(s==="—"||s==="-")return "";var p=s.match(/^([+-]?[\d,]+(?:\.\d+)?)%$/);if(p)return Number(p[1].replace(/,/g,""))/100;var n=s.match(/^([+-]?[\d,]+(?:\.\d+)?)$/);if(n)return Number(n[1].replace(/,/g,""));return s;}
-function tableExportRows(id){var t=document.getElementById(id),out=[];if(!t)return out;Array.prototype.forEach.call(t.querySelectorAll("tr"),function(tr){var row=[];Array.prototype.forEach.call(tr.querySelectorAll("th,td"),function(td){row.push(exportCell(td.textContent));});out.push(row);});return out;}
+function exportCell(v,raw){if(raw!==undefined&&raw!==null&&raw!==""){var rv=Number(raw);if(!isNaN(rv))return rv;}var s=String(v==null?"":v).trim().replace(/\s*[▼▲]\s*/g,"").replace(/, sorted.*$/i,"");if(s==="—"||s==="-")return "";var p=s.match(/^([+-]?[\d,]+(?:\.\d+)?)%$/);if(p)return Number(p[1].replace(/,/g,""))/100;var n=s.match(/^([+-]?[\d,]+(?:\.\d+)?)$/);if(n)return Number(n[1].replace(/,/g,""));return s;}
+function exportRawAttr(v){return v==null||isNaN(v)?"":" data-export-value=\""+String(Number(v))+"\"";}
+function tableExportRows(id){var t=document.getElementById(id),out=[];if(!t)return out;Array.prototype.forEach.call(t.querySelectorAll("tr"),function(tr){var row=[];Array.prototype.forEach.call(tr.querySelectorAll("th,td"),function(td){row.push(exportCell(td.textContent,td.getAttribute("data-export-value")));});out.push(row);});return out;}
 function chartExportRows(id){var ch=charts[id];if(!ch)return [];var ds=ch.data.datasets||[],head=["Period"].concat(ds.map(function(x){return x.label||"Value";})),out=[head];(ch.data.labels||[]).forEach(function(lb,i){if(lb==="")return;var row=[lb];ds.forEach(function(x){var v=x.data&&x.data[i];row.push(v==null?"":num(v));});out.push(row);});return out;}
 function safeFilePart(s){return String(s||"").replace(/[^A-Za-z0-9_-]+/g,"_").replace(/^_+|_+$/g,"");}
 function exportSection(section){
@@ -306,7 +307,7 @@ function drawMonthly(){destroy("cMonthly");var c=C();var lb=[],act=[],le=[],ly=[
 }
 function signCls(v){return Math.abs(v)<0.05?'up':(v<0?'down':'up');}
 function signTxt(v,p,pmax){var vs=fmt(v);if(Math.abs(v)<0.05)vs='0.0';else if(v>0)vs='+'+fmt(v);if(p==null)return {v:vs,p:''};var pt=p.toFixed(1)+'%';if(Math.abs(p)<0.05)pt='0.0%';else if(p>0)pt='+'+pt;return {v:vs,p:pt};}
-function cmpDoubleCell(title,vs,p){if(vs==null)return '<td>\u2014</td><td>\u2014</td>';var s=signCls(vs),t=signTxt(vs,p);return '<td class="'+s+'">'+t.v+'</td><td class="'+s+'">'+t.p+'</td>';}
+function cmpDoubleCell(title,vs,p){if(vs==null)return '<td>\u2014</td><td>\u2014</td>';var s=signCls(vs),t=signTxt(vs,p);return '<td class="'+s+'"'+exportRawAttr(vs)+'>'+t.v+'</td><td class="'+s+'"'+exportRawAttr(p)+'>'+t.p+'</td>';}
 function drawTable(){var c=C(),focusInfo=currentFocus(c),focus=focusInfo&&focusInfo.series,isTotal=!focus,histYear=isHistoricalYear(),effClosed=histYear?12:lastClosed;
  var lyYear=viewYear-1,h='<thead><tr><th>Month</th><th>Actual</th><th>LE</th><th>LY '+lyYear+'</th><th>AOP</th><th>VS LY</th><th>%VS LY</th><th>VS AOP</th><th>%VS AOP</th></tr></thead><tbody>';
  var seriesOk=hasS(c)&&!histYear,lySeries=focus?focus.ly:(histYear?lySeriesFor(c,viewYear):comparisonLySeries(c)),lyAvailable=hasSeriesData(lySeries),ta=0,tl=0,ty=0,ta2=0,tvly=0,tvaop=0;
@@ -317,9 +318,9 @@ function drawTable(){var c=C(),focusInfo=currentFocus(c),focus=focusInfo&&focusI
   else{act=(m<=lastClosed)?num(actSeries(c)[String(m)]):null;le=seriesOk?((m<lastClosed)?act:sv(c,"s_le",m)):null;ly=lyAvailable?num(lySeries[String(m)]):null;aop=seriesOk?sv(c,"s_aop",m):null;}
   var vly=(act!=null&&ly!=null)?(act-ly):null,ply=(vly!=null&&ly>0)?(vly/ly*100):null,vaop=(act!=null&&aop!=null)?(act-aop):null,paop=(vaop!=null&&aop>0)?(vaop/aop*100):null;
   ta+=act||0;ty+=ly||0;tvly+=vly||0;if(isTotal&&!histYear){tl+=le||0;ta2+=aop||0;tvaop+=vaop||0;}
- h+="<tr><td>"+MONTHS[m-1]+"</td><td>"+(act==null?"\u2014":fmt(act))+"</td><td>"+(le==null?"\u2014":fmt(le))+"</td><td>"+(ly==null?"\u2014":fmt(ly))+"</td><td>"+(aop==null?"\u2014":fmt(aop))+"</td>"+cmpDoubleCell("VS LY",vly,ply)+cmpDoubleCell("VS AOP",vaop,paop)+"</tr>";}
+ h+="<tr><td>"+MONTHS[m-1]+"</td><td"+exportRawAttr(act)+">"+(act==null?"\u2014":fmt(act))+"</td><td"+exportRawAttr(le)+">"+(le==null?"\u2014":fmt(le))+"</td><td"+exportRawAttr(ly)+">"+(ly==null?"\u2014":fmt(ly))+"</td><td"+exportRawAttr(aop)+">"+(aop==null?"\u2014":fmt(aop))+"</td>"+cmpDoubleCell("VS LY",vly,ply)+cmpDoubleCell("VS AOP",vaop,paop)+"</tr>";}
  var ptvly=(ty>0)?(tvly/ty*100):null,ptvaop=(isTotal&&!histYear&&ta2>0)?(tvaop/ta2*100):null;
- h+='<tr class="total"><td>Total</td><td>'+fmt(ta)+'</td><td>'+(isTotal&&!histYear&&seriesOk?fmt(tl):'\u2014')+'</td><td>'+(lyAvailable?fmt(ty):'\u2014')+'</td><td>'+(isTotal&&!histYear&&seriesOk?fmt(ta2):'\u2014')+'</td>'+cmpDoubleCell("Total VS LY",lyAvailable?tvly:null,lyAvailable?ptvly:null)+((isTotal&&!histYear&&seriesOk)?cmpDoubleCell("Total VS AOP",tvaop,ptvaop):'<td>\u2014</td><td>\u2014</td>')+'</tr></tbody>';
+ h+='<tr class="total"><td>Total</td><td'+exportRawAttr(ta)+'>'+fmt(ta)+'</td><td'+exportRawAttr(isTotal&&!histYear&&seriesOk?tl:null)+'>'+(isTotal&&!histYear&&seriesOk?fmt(tl):'\u2014')+'</td><td'+exportRawAttr(lyAvailable?ty:null)+'>'+(lyAvailable?fmt(ty):'\u2014')+'</td><td'+exportRawAttr(isTotal&&!histYear&&seriesOk?ta2:null)+'>'+(isTotal&&!histYear&&seriesOk?fmt(ta2):'\u2014')+'</td>'+cmpDoubleCell("Total VS LY",lyAvailable?tvly:null,lyAvailable?ptvly:null)+((isTotal&&!histYear&&seriesOk)?cmpDoubleCell("Total VS AOP",tvaop,ptvaop):'<td>\u2014</td><td>\u2014</td>')+'</tr></tbody>';
  setT("mTable",h);}
 function drawCategory(c){var el=document.getElementById("cCat");if(!el||!Chart)return;destroy("cCat");var cT=document.getElementById("tgCat");if(cT)cT.textContent=(activeCat?("Category \u2022 "+activeCat):shipToLabel());
  var histYear=isHistoricalYear(),allCats,tot;
@@ -389,9 +390,9 @@ function drawCategoryPerformance(c){
  var h='<thead><tr><th style="text-align:left">Category</th>'+perfHeaderCell('Actual '+(viewYear-1),'ly',st)+perfHeaderCell('Actual '+viewYear,'actual',st)+perfHeaderCell('Growth vs LY (MB)','growth',st)+perfHeaderCell('% Growth vs LY','pct',st)+perfHeaderCell('% Contribution','contrib',st)+'</tr></thead><tbody>';
  if(!ordered.length)h+='<tr><td>No Category</td><td colspan="5">\u2014</td></tr>';
  var ta=0,tl=0,allLy=true;
- ordered.forEach(function(r){var v=r.v,con=r.vals.contrib,cls='perf-row'+(v.growth!=null&&v.growth>0?' growing':'')+(activeCat===r.name?' selected':'');ta+=v.actual;if(v.ly==null)allLy=false;else tl+=v.ly;h+='<tr class="'+cls+'" data-cat="'+encodeURIComponent(r.name)+'"><td style="text-align:left;white-space:normal">'+r.name+'</td><td>'+perfCell(v.ly)+'</td><td>'+fmt(v.actual)+'</td><td>'+signedPerf(v.growth)+'</td><td>'+signedPerf(v.pct,'%')+'</td><td>'+fmt(con)+'%</td></tr>';});
+ ordered.forEach(function(r){var v=r.v,con=r.vals.contrib,cls='perf-row'+(v.growth!=null&&v.growth>0?' growing':'')+(activeCat===r.name?' selected':'');ta+=v.actual;if(v.ly==null)allLy=false;else tl+=v.ly;h+='<tr class="'+cls+'" data-cat="'+encodeURIComponent(r.name)+'"><td style="text-align:left;white-space:normal">'+r.name+'</td><td'+exportRawAttr(v.ly)+'>'+perfCell(v.ly)+'</td><td'+exportRawAttr(v.actual)+'>'+fmt(v.actual)+'</td><td'+exportRawAttr(v.growth)+'>'+signedPerf(v.growth)+'</td><td'+exportRawAttr(v.pct)+'>'+signedPerf(v.pct,'%')+'</td><td'+exportRawAttr(con)+'>'+fmt(con)+'%</td></tr>';});
  var tg=allLy?ta-tl:null,tp=(allLy&&tl!==0)?tg/tl*100:null;
- h+='</tbody><tfoot><tr class="total"><td style="text-align:left">Total</td><td>'+perfCell(allLy?tl:null)+'</td><td>'+fmt(ta)+'</td><td>'+signedPerf(tg)+'</td><td>'+signedPerf(tp,'%')+'</td><td>'+(ordered.length?'100.0%':'\u2014')+'</td></tr></tfoot>';setT('catPerfTable',h);setV('tgCatPerf',shipToLabel()+(activeCat?' \u2022 '+activeCat:''));
+ h+='</tbody><tfoot><tr class="total"><td style="text-align:left">Total</td><td'+exportRawAttr(allLy?tl:null)+'>'+perfCell(allLy?tl:null)+'</td><td'+exportRawAttr(ta)+'>'+fmt(ta)+'</td><td'+exportRawAttr(tg)+'>'+signedPerf(tg)+'</td><td'+exportRawAttr(tp)+'>'+signedPerf(tp,'%')+'</td><td'+exportRawAttr(ordered.length?100:null)+'>'+(ordered.length?'100.0%':'\u2014')+'</td></tr></tfoot>';setT('catPerfTable',h);setV('tgCatPerf',shipToLabel()+(activeCat?' \u2022 '+activeCat:''));
  Array.prototype.forEach.call(document.querySelectorAll('#catPerfTable .perf-row'),function(r){r.onclick=function(){toggleCat(decodeURIComponent(r.getAttribute('data-cat')));};});
  bindSortHeaders('catPerfTable');
 }
@@ -566,13 +567,13 @@ function drawShipTo(){
     var cls=['st-row',on?'shipto-selected':''].join(' ');
     h+='<tr class="'+cls+'" tabindex="0" role="button" data-shipto="'+enc+'" aria-pressed="'+on+'" title="'+escAttr((on?"":"ดูเฉพาะ ")+(on?"คลิกอีกครั้งเพื่อแสดงยอดรวมทั้งหมด":nm))+'" style="cursor:pointer">';
     h+='<td style="text-align:left;white-space:normal">'+escHtml(row.name)+(on?' <span class="st-show">\u25bc</span>':'')+'</td>';
-    weeks.forEach(function(w){h+='<td>'+shipToFmt(row.weeks[w]||0)+'</td>';});
-    h+='<td><b>'+shipToFmt(row.total)+'</b></td></tr>';
+    weeks.forEach(function(w){h+='<td'+exportRawAttr(row.weeks[w]||0)+'>'+shipToFmt(row.weeks[w]||0)+'</td>';});
+    h+='<td'+exportRawAttr(row.total)+'><b>'+shipToFmt(row.total)+'</b></td></tr>';
   });
   if(!show)h+='<tr><td style="text-align:left" class="recon-row">Showing top 400 by sales; remaining ship-to parties included in Total.</td><td colspan="'+(weeks.length+1)+'"></td></tr>';
   h+='</tbody><tfoot><tr class="total"><td style="text-align:left">Total</td>';
-  weeks.forEach(function(w){h+='<td>'+shipToFmt(weekTotals[w]||0)+'</td>';});
-  h+='<td>'+shipToFmt(grand)+'</td></tr></tfoot>';
+  weeks.forEach(function(w){h+='<td'+exportRawAttr(weekTotals[w]||0)+'>'+shipToFmt(weekTotals[w]||0)+'</td>';});
+  h+='<td'+exportRawAttr(grand)+'>'+shipToFmt(grand)+'</td></tr></tfoot>';
   setT("shipToTable",h);
   // Click a row to filter everything to that Ship-to; click again to clear.
   Array.prototype.forEach.call(document.querySelectorAll("#shipToTable tbody tr.st-row"),function(tr){
@@ -621,14 +622,14 @@ function drawSkuWeekly(){
   keys.forEach(function(k){
     var row=rows[k],label=(row.material?row.material+" ":"")+row.name;
     h+='<tr data-material="'+escAttr(row.material)+'" data-name="'+escAttr(row.name)+'"><td style="text-align:left;white-space:normal">'+escHtml(label)+'</td>';
-    weeks.forEach(function(w){h+='<td>'+weeklyFmt(row.weeks[w]||0,skuWeeklyUnit)+'</td>';});
-    h+='<td><b>'+weeklyFmt(row.total,skuWeeklyUnit)+'</b></td></tr>';
+    weeks.forEach(function(w){h+='<td'+exportRawAttr(row.weeks[w]||0)+'>'+weeklyFmt(row.weeks[w]||0,skuWeeklyUnit)+'</td>';});
+    h+='<td'+exportRawAttr(row.total)+'><b>'+weeklyFmt(row.total,skuWeeklyUnit)+'</b></td></tr>';
   });
   if(!show)h+='<tr><td style="text-align:left" class="recon-row">Showing top 400 by sales; remaining SKUs included in Total. Use Material search to narrow.</td><td colspan="'+(weeks.length+1)+'"></td></tr>';
   if(!keys.length)h+='<tr><td style="text-align:left" class="recon-row">No SKU found for the current filters.</td><td colspan="'+(weeks.length+1)+'"></td></tr>';
   h+='</tbody><tfoot><tr class="total"><td style="text-align:left">Total</td>';
-  weeks.forEach(function(w){h+='<td>'+weeklyFmt(weekTotals[w]||0,skuWeeklyUnit)+'</td>';});
-  h+='<td>'+weeklyFmt(grand,skuWeeklyUnit)+'</td></tr></tfoot>';
+  weeks.forEach(function(w){h+='<td'+exportRawAttr(weekTotals[w]||0)+'>'+weeklyFmt(weekTotals[w]||0,skuWeeklyUnit)+'</td>';});
+  h+='<td'+exportRawAttr(grand)+'>'+weeklyFmt(grand,skuWeeklyUnit)+'</td></tr></tfoot>';
   setT("skuWeeklyTable",h);
   syncSkuWeeklyScroll();
   var rangeLabel=MONTHS[from-1]+"–"+MONTHS[to-1]+" "+year;
@@ -677,7 +678,7 @@ function buildSkuWeeklyExportRows(){
     // rebuild numeric cells from the visible td values in order (skip the
     // combined Material / SKU first cell)
     var vals=[];
-    Array.prototype.forEach.call(tr.querySelectorAll("td"),function(td,i){ if(i>0) vals.push((td.textContent||"").trim()); });
+    Array.prototype.forEach.call(tr.querySelectorAll("td"),function(td,i){ if(i>0) vals.push(exportCell((td.textContent||"").trim(),td.getAttribute("data-export-value"))); });
     var row=[mat,name].concat(vals);
     skuWeeklyExportRows.push(row);
   });
