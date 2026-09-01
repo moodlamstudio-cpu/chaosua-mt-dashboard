@@ -492,9 +492,11 @@ def merge_kpi(d):
     mon, makro, lotus = _load_dashboard_calc()
     plan = _load_plan_sale()
 
-    last_closed = max([m for m in mon if (mon[m]["act"] or 0) > 0], default=8)
     # Actual/LY always follow refreshed Raw data (including the latest appended rows).
     raw_mt_actual = {m: round(d["MT"].get("monthly", {}).get(str(m), 0), 2) for m in range(1, 13)}
+    # The planning sheet can lag behind newly appended actuals. Use the latest
+    # month with real MT actual sales so the current partial month is visible.
+    last_closed = max([m for m, value in raw_mt_actual.items() if value > 0], default=8)
     raw_mt_ly = {m: round(d["MT"].get("history", {}).get(str(FISCAL_YEAR - 1), {}).get(str(m), 0), 2) for m in range(1, 13)}
     act_sum = sum(raw_mt_actual[m] for m in range(1, last_closed + 1))
     # LE mix: closed months use actual, the latest open month uses its LE forecast

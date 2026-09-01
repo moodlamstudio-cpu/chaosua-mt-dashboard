@@ -62236,10 +62236,10 @@
         }
       }
     },
-    "actual_ytd": 117.12,
-    "le_ytd_mix": 119.68,
-    "ly_ytd": 151.3,
-    "aop_ytd": 179.51,
+    "actual_ytd": 117.43,
+    "le_ytd_mix": 140.92,
+    "ly_ytd": 168.87,
+    "aop_ytd": 200.29,
     "s_actual": {
       "1": 11.04,
       "2": 9.6,
@@ -62893,6 +62893,6 @@
       "label": "Lawson"
     }
   ],
-  "_lastClosed": 8,
-  "_lastSalesDate": "2026-08-31"
+  "_lastClosed": 9,
+  "_lastSalesDate": "2026-09-02"
 }
