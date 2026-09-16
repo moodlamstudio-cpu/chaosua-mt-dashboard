@@ -603,7 +603,7 @@ function drawSkuWeekly(){
   if(!SW||!SW.facts){setT("skuWeeklyTable","");setV("tgSkuWeekly","No data");return;}
   var selSet=shipToBasisSet(),from=num(selFrom),to=num(selTo),year=String(viewYear);
   var filterCat=activeCat,filterSku=activeSku,search=String(skuWeeklySearch||"").trim().toLowerCase();
-  var unitMeta={ea:{label:"ชิ้น",idx:6},ton:{label:"ตัน",idx:7},baht:{label:"บาท",idx:8},mb:{label:"ล้านบาท",idx:9}};
+  var unitMeta={ea:{label:"ชิ้น",idx:8},ton:{label:"ตัน",idx:7},baht:{label:"บาท",idx:9},mb:{label:"ล้านบาท",idx:6}};
   var unit=unitMeta[skuWeeklyUnit]||unitMeta.mb;
   var rows={},weekTotals={},weekSet={},grand=0;
   (SW.facts||[]).forEach(function(r){
