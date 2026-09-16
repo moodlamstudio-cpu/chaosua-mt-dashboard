@@ -28,6 +28,7 @@ from openpyxl import load_workbook
 SRC = r"C:\Users\teera\OneDrive - TIA NGEE HIANG (CHAOSUA) CO.,LTD\Desktop\Chaosua_Ice\Data\Sales report\Sale Lotus Makro_Dashboard_Pivot.xlsx"
 OUT = "data_channels.json"
 SHIP_OUT = "shipto_data.json"
+SKU_WEEKLY_OUT = "sku_weekly_data.json"
 
 FISCAL_YEAR = 2026   # FISCAL year shown by the dashboard (unchanged)
 
@@ -432,6 +433,75 @@ def write_shipto_data():
     print("SAVED", SHIP_OUT, "ship-to:", len(labels), "facts:", len(facts))
 
 
+def write_sku_weekly_data():
+    """Write the weekly SKU facts used by the dashboard's SKU table.
+
+    Keep the established record layout:
+      [material, sku, channel, year, month, category, mb, ton, ea, baht, week]
+    The source workbook is the single source of truth; this function must be
+    regenerated together with the channel and ship-to exports so the weekly
+    SKU table cannot lag behind the dashboard KPI data.
+    """
+    wb = load_workbook(SRC, read_only=True, data_only=True)
+    pm = load_product_master(wb)
+    ws = wb["Raw data"]
+    facts = defaultdict(lambda: [0.0, 0.0, 0.0, 0.0])
+    latest = None
+
+    def parse_date(v):
+        import datetime as _dt
+        if isinstance(v, (_dt.datetime, _dt.date)):
+            return v.date() if isinstance(v, _dt.datetime) else v
+        if isinstance(v, str):
+            for fmt in ("%d/%m/%Y", "%d-%m-%Y", "%Y-%m-%d"):
+                try:
+                    return _dt.datetime.strptime(v.strip(), fmt).date()
+                except ValueError:
+                    pass
+        return None
+
+    for i, r in enumerate(ws.iter_rows(values_only=True)):
+        if i == 0:
+            continue
+        try:
+            year, month, week = int(r[0]), int(r[1]), int(r[2])
+            ea, ton, baht = float(r[8] or 0), float(r[10] or 0), float(r[11] or 0)
+        except (TypeError, ValueError, IndexError):
+            continue
+        if not (1 <= month <= 12 and 1 <= week <= 53) or baht == 0:
+            continue
+        channel = norm_channel(r[5])
+        material = str(r[7] or "").strip()
+        if not material:
+            continue
+        info = pm.get(material, {}) or {}
+        category = info.get("c1") or info.get("g") or "Other"
+        sku = info.get("d") or material
+        bucket = facts[(material, sku, channel, year, month, category, week)]
+        bucket[0] += baht / 1e6
+        bucket[1] += ton
+        bucket[2] += ea
+        bucket[3] += baht
+        d = parse_date(r[3])
+        if d and (latest is None or d > latest):
+            latest = d
+    wb.close()
+    rows = []
+    for (material, sku, channel, year, month, category, week), v in sorted(facts.items()):
+        rows.append([material, sku, channel, year, month, category,
+                     round(v[0], 6), round(v[1], 6), round(v[2], 3),
+                     round(v[3], 2), week])
+    payload = {
+        "source": "Sale Lotus Makro_Dashboard_Pivot.xlsx / Raw data + Product Master",
+        "updated": latest.isoformat() if latest else None,
+        "facts": rows,
+    }
+    with open(SKU_WEEKLY_OUT, "w", encoding="utf-8", newline="") as fp:
+        json.dump(payload, fp, ensure_ascii=False, separators=(",", ":"))
+        fp.write("\n")
+    print("SAVED", SKU_WEEKLY_OUT, "facts:", len(rows), "latest_date:", payload["updated"])
+
+
 def _load_dashboard_calc():
     """Read Dashboard Calc into per-month dicts (MB units). Used ONLY to derive
     the last-closed month and to keep the legacy MAKRO/LOTUS'/MT actual+LY series
@@ -597,6 +667,7 @@ if __name__ == "__main__":
         fp.write(text)
         fp.write("\n")
     write_shipto_data()
+    write_sku_weekly_data()
     mt = data["MT"]
     print("SAVED", OUT)
     print("last_closed month:", last_closed)
