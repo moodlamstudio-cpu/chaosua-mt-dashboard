@@ -190,8 +190,8 @@ function breakdownMaps(name){
 function shipToLabel(){return activeShipTo?("Ship-to \u2022 "+(activeShipTo||"")):label();}
 
 function load(){
- Promise.all([fetch("data_channels.json?v="+Date.now()).then(r=>r.json()),fetch("shipto_data.json?v="+Date.now()).then(r=>r.json()),fetch("sku_weekly_data.json?v="+Date.now()).then(r=>r.json()).catch(function(){return null;})]).then(function(res){
-   D=res[0];S=res[1];SW=res[2];lastClosed=D._lastClosed||8;fy=2026;
+ Promise.all([fetch("data_channels.json?v="+Date.now()).then(r=>r.json()),fetch("sku_weekly_data.json?v="+Date.now()).then(r=>r.json()).catch(function(){return null;})]).then(function(res){
+   D=res[0];S={facts:[]};SW=res[1];lastClosed=D._lastClosed||8;fy=2026;
    // channels
    var sc=document.getElementById("selChannel");sc.innerHTML="";
    var allChannelIds=(D._channels||[]).filter(function(ch){return ch.id!=="MT";}).map(function(ch){return ch.id;});
@@ -226,6 +226,8 @@ function load(){
    sf.onchange=function(){selFrom=+sf.value;if(selTo<selFrom)selTo=selFrom;st.value=selTo;kpiPick=null;renderAll();};
    st.onchange=function(){selTo=+st.value;if(selFrom>selTo)selFrom=selTo;sf.value=selFrom;kpiPick=null;renderAll();};
    renderAll();
+   // Ship-to data is large; load it after the main dashboard is visible.
+   fetch("shipto_data.json?v="+Date.now()).then(function(r){return r.json();}).then(function(ship){S=ship;renderAll();}).catch(function(e){console.warn("Ship-to data unavailable:",e.message);});
  }).catch(function(e){setT("mTable","Load error: "+e.message);});
 }
 function rangeSum(map,f,t){if(!map)return 0;var s=0;for(var m=f;m<=t;m++)s+=num(map[String(m)]);return s;}
