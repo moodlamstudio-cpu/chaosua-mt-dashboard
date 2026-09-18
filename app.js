@@ -1,6 +1,7 @@
 ﻿const MONTHS=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
 let D=null,S=null,SW=null,charts={},cur="MT",selChans=["MAKRO","LOTUS'"],selFrom=1,selTo=8,lastClosed=8,fy=2026;
 var viewYear=fy; // Year filter state; defaults to fy (2026) so the first-open view is unchanged.
+var activeGroup="MT";
 function num(v){return (v==null||isNaN(v))?0:Number(v);}
 function fmt(v){return (v==null||isNaN(v))?"-":Number(v).toLocaleString("en-US",{minimumFractionDigits:1,maximumFractionDigits:1});}
 // MB with 2 decimal places, used by the daily Ship-to party table.
@@ -193,21 +194,23 @@ function load(){
  Promise.all([fetch("data_channels.json?v="+Date.now()).then(r=>r.json()),fetch("sku_weekly_data.json?v="+Date.now()).then(r=>r.json()).catch(function(){return null;})]).then(function(res){
    D=res[0];S={facts:[]};SW=res[1];lastClosed=D._lastClosed||8;fy=2026;
    // channels
-   var sc=document.getElementById("selChannel");sc.innerHTML="";
-   var allChannelIds=(D._channels||[]).filter(function(ch){return ch.id!=="MT";}).map(function(ch){return ch.id;});
-   var allLb=document.createElement("label");allLb.className="chk";allLb.style.cssText="display:inline-flex;align-items:center;gap:5px;margin:3px 12px 3px 0;cursor:pointer;font-size:12px;font-weight:700;";
-   var allCb=document.createElement("input");allCb.type="checkbox";allCb.value="__ALL__";allLb.appendChild(allCb);allLb.appendChild(document.createTextNode("All Channel"));sc.appendChild(allLb);
-   function scanChk(){var cbs=sc.querySelectorAll("input[type=checkbox]");for(var i=0;i<cbs.length;i++)cbs[i].checked=(cbs[i].value==="__ALL__")?(selChans.length===allChannelIds.length):(selChans.indexOf(cbs[i].value)>=0);}
-   allCb.onchange=function(){selChans=allCb.checked?allChannelIds.slice():["MAKRO","LOTUS'"];cur=selChans[0];activeCat=null;activeSku=null;kpiPick=null;scanChk();renderAll();};
-   (D._channels||[]).forEach(function(ch){
-     if(ch.id==="MT")return;
+   var sg=document.getElementById("selGroup"),sc=document.getElementById("selChannel");
+   var groupDefs=D._groups||[{id:"MT",label:"MT"}];sg.innerHTML="";
+   groupDefs.forEach(function(g){var o=document.createElement("option");o.value=g.id;o.textContent=g.label;sg.appendChild(o);});
+   sg.value=activeGroup;
+   function groupIds(){return (D._channels||[]).filter(function(ch){return ch.id!=="MT"&&(ch.group||"MT")===activeGroup;}).map(function(ch){return ch.id;});}
+   function scanChk(ids){var cbs=sc.querySelectorAll("input[type=checkbox]");for(var i=0;i<cbs.length;i++)cbs[i].checked=(cbs[i].value==="__ALL__")?(selChans.length===ids.length):(selChans.indexOf(cbs[i].value)>=0);}
+   function renderChannelChecks(){var ids=groupIds();sc.innerHTML="";var allLb=document.createElement("label");allLb.className="chk";allLb.style.cssText="display:inline-flex;align-items:center;gap:5px;margin:3px 12px 3px 0;cursor:pointer;font-size:12px;font-weight:700;";var allCb=document.createElement("input");allCb.type="checkbox";allCb.value="__ALL__";allLb.appendChild(allCb);allLb.appendChild(document.createTextNode("All Channel"));sc.appendChild(allLb);allCb.onchange=function(){selChans=allCb.checked?ids.slice():[ids[0]];cur=selChans[0];activeCat=null;activeSku=null;kpiPick=null;scanChk(ids);renderAll();};(D._channels||[]).forEach(function(ch){
+     if(ids.indexOf(ch.id)<0)return;
      var lb=document.createElement("label");lb.className="chk";lb.style.cssText="display:inline-flex;align-items:center;gap:5px;margin:3px 12px 3px 0;cursor:pointer;font-size:12px;font-weight:600;";
      var cb=document.createElement("input");cb.type="checkbox";cb.value=ch.id;
      var nm=(ch.id==="LOTUS'"?"Lotus's":(D[ch.id]&&D[ch.id].label||ch.label));
      lb.appendChild(cb);lb.appendChild(document.createTextNode(nm));sc.appendChild(lb);
-     cb.onchange=function(){var x=selChans.indexOf(ch.id);if(cb.checked&&x<0)selChans.push(ch.id);else if(!cb.checked&&x>=0)selChans.splice(x,1);if(!selChans.length)selChans=[ch.id];scanChk();cur=selChans[0];activeCat=null;activeSku=null;kpiPick=null;renderAll();};
+     cb.onchange=function(){var x=selChans.indexOf(ch.id);if(cb.checked&&x<0)selChans.push(ch.id);else if(!cb.checked&&x>=0)selChans.splice(x,1);if(!selChans.length)selChans=[ch.id];scanChk(ids);cur=selChans[0];activeCat=null;activeSku=null;kpiPick=null;renderAll();};
    });
-   scanChk();cur=selChans[0];
+   }
+   sg.onchange=function(){activeGroup=sg.value;var ids=groupIds();selChans=ids.slice();cur=selChans[0];activeCat=null;activeSku=null;kpiPick=null;renderChannelChecks();renderAll();};
+   renderChannelChecks();cur=selChans[0];
    // Year filter: list every year present in the data (actual/LY history and annual),
    // default to the current fiscal year (fy) so the first-open view is unchanged.
    var sy=document.getElementById("selYear");sy.innerHTML="";

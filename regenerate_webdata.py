@@ -73,6 +73,7 @@ def build():
     ws = wb["Raw data"]
 
     ch_struct = defaultdict(init_channel)
+    channel_groups = {}
 
     for i, r in enumerate(ws.iter_rows(values_only=True)):
         if i == 0:
@@ -86,6 +87,7 @@ def build():
         if not (1 <= month <= 12):
             continue
         ch = norm_channel(r[5])          # Customer = channel
+        channel_groups[ch] = str(r[4] or "MT").strip() or "MT"
         mat = str(r[7])                  # Material (shifted by Ship-to party)
         try:
             val = float(r[11] or 0)      # Net value THB
@@ -169,6 +171,7 @@ def build():
             }
         chan_data[ch] = {
             "label": ch,
+            "group": channel_groups.get(ch, "MT"),
             "total_mb": round(tot / 1e6, 2),
             "monthly": {str(mm): round(s["monthly"][mm] / 1e6, 2) for mm in range(1, 13)},
             "category": {"total_mb": round(tot / 1e6, 2), "items": catitems},
@@ -199,6 +202,7 @@ def build():
 
     mt_channel = {
         "label": "MT (Makro+Lotus')",
+        "group": "MT",
         "monthly": {str(m): add_num(*[chan_data[c]["monthly"][str(m)] for c in mt]) for m in range(1, 13)},
     }
     tot = sum(chan_data[c]["total_mb"] * 1e6 for c in mt)
@@ -271,13 +275,21 @@ def build():
 
     chan_data["MT"] = mt_channel
 
-    # _channels: MT first + every 2026-active channel (total_mb>0), ordered by 2026 total desc
-    #   (matches original behaviour; historical-only channels are excluded from the picker)
+    # _channels: MT first + every channel with any historical sales, ordered by 2026 total desc then name
     active = [(chan_data[c]["total_mb"], c) for c in chan_data
-              if not c.startswith("_") and c != "MT" and chan_data[c]["total_mb"] > 0]
+              if not c.startswith("_") and c != "MT"
+              and sum(chan_data[c].get("annual", {}).values()) > 0]
     active.sort(key=lambda x: (-x[0], x[1]))
-    chan_data["_channels"] = ([{"id": "MT", "label": mt_channel["label"]}]
-                              + [{"id": c, "label": chan_data[c]["label"]} for _, c in active])
+    chan_data["_channels"] = ([{"id": "MT", "label": mt_channel["label"], "group": "MT"}]
+                              + [{"id": c, "label": chan_data[c]["label"],
+                                  "group": chan_data[c].get("group", "MT")} for _, c in active])
+    groups = defaultdict(list)
+    for ch in chan_data["_channels"]:
+        if ch["id"] == "MT":
+            continue
+        groups[ch.get("group", "MT")].append(ch["id"])
+    chan_data["_groups"] = [{"id": g, "label": g, "channels": ids}
+                             for g, ids in sorted(groups.items())]
 
     return chan_data
 
@@ -603,19 +615,14 @@ def merge_kpi(d):
         ch["s_aop"] = {str(m): round(plan.get(channel_id, {}).get("AOP", {}).get(m, 0), 2)
                         for m in range(1, 13)}
 
-    # All OTHER channels: enable the planning chart by giving each channel its own
-    # actual (Raw monthly) + LY (2025 history) and the Data Plan Sale LE/AOP.
-    for channel_id in plan:
-        if channel_id in ("MAKRO", "LOTUS'"):
+    # All non-MT customer channels: actual/LY come from their own Raw data.
+    # Channels without planning rows (such as Others) keep empty LE/AOP series.
+    for channel_id, ch in d.items():
+        if channel_id.startswith("_") or channel_id in ("MT", "MAKRO", "LOTUS'"):
             continue
-        ch = d.get(channel_id)
-        if ch is None:
+        if not isinstance(ch, dict):
             continue
-        hist25 = ch.get("history", {}).get("2025", {})
-        # BUGFIX 2026-08-14: ch["monthly"] and hist25 keyed by STRING months
-        # ("1".."12"), but the range was looking up with int m -> always 0,
-        # so other-channel s_actual/s_ly stayed all-zero, making app.js hasS()
-        # gate FAIL and hide LE/AOP for non-MT channels. Look up by str(m).
+        hist25 = ch.get("history", {}).get(str(FISCAL_YEAR - 1), {})
         ch["s_actual"] = {str(m): round(ch.get("monthly", {}).get(str(m), 0), 2)
                            for m in range(1, 13)}
         ch["s_ly"] = {str(m): round(hist25.get(str(m), 0), 2) for m in range(1, 13)}
