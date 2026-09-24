@@ -54,19 +54,30 @@ function exportSection(section){
   var file="CHAOSUA_"+(names[section]||"Dashboard")+"_"+MONTHS[selFrom-1]+"-"+MONTHS[selTo-1]+"_"+fy+"_"+safeFilePart(label())+".xlsx";XLSX.writeFile(wb,file);
 }
 function pptChartSeries(chart,datasetFilter){var labels=chart&&chart.data&&chart.data.labels||[],keep=[];labels.forEach(function(x,i){if(x!=="")keep.push(i);});return (chart&&chart.data&&chart.data.datasets||[]).filter(datasetFilter||function(){return true;}).map(function(ds){return {name:ds.label||"Sales",labels:keep.map(function(i){return labels[i];}),values:keep.map(function(i){var v=ds.data&&ds.data[i];return v==null?0:num(v);})};});}
-function exportEditablePpt(section){
+var pptLogoData=null;
+function loadPptLogo(){
+  if(pptLogoData)return Promise.resolve(pptLogoData);
+  return fetch("assets/chaosua-logo.png").then(function(r){if(!r.ok)throw new Error("Logo asset unavailable");return r.blob();}).then(function(blob){return new Promise(function(resolve,reject){var fr=new FileReader();fr.onload=function(){pptLogoData=fr.result;resolve(pptLogoData);};fr.onerror=reject;fr.readAsDataURL(blob);});});
+}
+async function exportEditablePpt(section){
   if(typeof PptxGenJS==="undefined"){alert("Editable PowerPoint library is not available. Please check your connection and refresh.");return;}
   var chartId=section==="annual"?"cAnnual":section==="monthly"?"cMonthly":"cCat",chart=charts[chartId];if(!chart){alert("No chart data available for export.");return;}
-  var pptx=new PptxGenJS();pptx.layout="LAYOUT_WIDE";pptx.author="CHAOSUA";pptx.company="CHAOSUA Foods Industry Public Company Limited";pptx.subject="MT Sales Dashboard";
-  var slide=pptx.addSlide();slide.background={color:"FFFFFF"};
-  var titles={annual:"Annual Actual Sales",monthly:"Monthly Sales Performance",category:"Sales by Category"},title=titles[section]||"Sales Chart",sub=label()+" | "+MONTHS[selFrom-1]+"–"+MONTHS[selTo-1]+" "+fy+(activeCat?" | "+activeCat:"")+(activeSku?" | "+activeSku:"");
-  slide.addText(title,{x:.55,y:.28,w:12.2,h:.38,fontFace:"Arial",fontSize:22,bold:true,color:"0F172A",margin:0});slide.addText(sub,{x:.55,y:.72,w:12.2,h:.25,fontFace:"Arial",fontSize:10,color:"64748B",margin:0});
-  var common={x:.55,y:1.08,w:12.2,h:5.65,showTitle:false,showLegend:true,legendPos:"b",showValue:true,showCatName:false,showPercent:false,fontFace:"Arial",chartColors:["525252","CBD5E1","64748B","2563EB","E07A47","D4A72C","8FA68F"],showBorder:false,catAxisLabelFontSize:10,valAxisLabelFontSize:10,valAxisTitle:"MB",showValue:true};
-  if(section==="annual"){common.showLegend=false;slide.addChart(pptx.ChartType.bar,pptChartSeries(chart),common);}
-  else if(section==="category"){common.showLegend=true;common.legendPos="r";common.holeSize=58;common.showPercent=true;common.showValue=false;slide.addChart(pptx.ChartType.doughnut,pptChartSeries(chart),common);}
-  else {var bars=pptChartSeries(chart,function(ds){return (ds.type||"")==="bar";}),lines=pptChartSeries(chart,function(ds){return (ds.type||"")==="line";});common.showValue=false;slide.addChart([{type:pptx.ChartType.bar,data:bars},{type:pptx.ChartType.line,data:lines}],common);}
-  slide.addText("Source: CHAOSUA MT Sales Dashboard | Editable chart: right-click chart and choose Edit Data",{x:.55,y:7.18,w:12.2,h:.18,fontFace:"Arial",fontSize:8,color:"94A3B8",margin:0});
-  var file="CHAOSUA_"+title.replace(/\s+/g,"_")+"_"+MONTHS[selFrom-1]+"-"+MONTHS[selTo-1]+"_"+fy+"_"+safeFilePart(label())+".pptx";pptx.writeFile({fileName:file}).catch(function(e){alert("PowerPoint export failed: "+e.message);});
+  try{
+    var logo=await loadPptLogo();
+    var pptx=new PptxGenJS();pptx.layout="LAYOUT_WIDE";pptx.author="CHAOSUA";pptx.company="CHAOSUA Foods Industry Public Company Limited";pptx.subject="MT Sales Dashboard";pptx.lang="th-TH";
+    var slide=pptx.addSlide();slide.background={color:"FFFFFF"};
+    var titles={annual:"Annual Actual Sales",monthly:"Monthly Sales Performance",category:"Sales by Category"},title=titles[section]||"Sales Chart",sub=label()+" | "+MONTHS[selFrom-1]+"–"+MONTHS[selTo-1]+" "+fy+(activeCat?" | "+activeCat:"")+(activeSku?" | "+activeSku:"");
+    slide.addImage({data:logo,x:11.75,y:.16,w:.67,h:.99});
+    slide.addText(title,{x:.55,y:.28,w:10.7,h:.38,fontFace:"Tahoma",fontSize:22,bold:true,color:"111111",margin:0});
+    slide.addShape(pptx.ShapeType.line,{x:.55,y:.76,w:1.0,h:0,line:{color:"B21F2D",width:2.2}});
+    slide.addText(sub,{x:.55,y:.84,w:10.8,h:.25,fontFace:"Tahoma",fontSize:10,color:"666666",margin:0});
+    var common={x:.55,y:1.25,w:12.2,h:5.42,showTitle:false,showLegend:true,legendPos:"b",showValue:true,showCatName:false,showPercent:false,fontFace:"Tahoma",chartColors:["1F1F1F","777777","B21F2D","BDBDBD","555555","D9D9D9"],showBorder:false,catAxisLabelFontFace:"Tahoma",valAxisLabelFontFace:"Tahoma",catAxisLabelFontSize:10,valAxisLabelFontSize:10,valAxisTitle:"MB",showValue:true};
+    if(section==="annual"){common.showLegend=false;slide.addChart(pptx.ChartType.bar,pptChartSeries(chart),common);}
+    else if(section==="category"){common.showLegend=true;common.legendPos="r";common.holeSize=58;common.showPercent=true;common.showValue=false;slide.addChart(pptx.ChartType.doughnut,pptChartSeries(chart),common);}
+    else {var bars=pptChartSeries(chart,function(ds){return (ds.type||"")==="bar";}),lines=pptChartSeries(chart,function(ds){return (ds.type||"")==="line";});common.showValue=false;slide.addChart([{type:pptx.ChartType.bar,data:bars},{type:pptx.ChartType.line,data:lines}],common);}
+    slide.addText("Source: CHAOSUA MT Sales Dashboard | Editable chart",{x:.55,y:7.18,w:7.0,h:.18,fontFace:"Tahoma",fontSize:8,color:"888888",margin:0});
+    var file="CHAOSUA_"+title.replace(/\s+/g,"_")+"_"+MONTHS[selFrom-1]+"-"+MONTHS[selTo-1]+"_"+fy+"_"+safeFilePart(label())+".pptx";await pptx.writeFile({fileName:file});
+  }catch(e){alert("PowerPoint export failed: "+e.message);}
 }
 var valueLabelPlugin={id:"valueLabelPlugin",afterDatasetsDraw:function(chart){if(chart.canvas&&chart.canvas.id==="cAnnual")return;var ctx=chart.ctx;ctx.save();ctx.textAlign="center";ctx.textBaseline="bottom";ctx.fillStyle="#475569";ctx.font="700 12px sans-serif";chart.data.datasets.forEach(function(ds,di){var datasetType=ds.type||chart.config.type;if(datasetType!=="bar")return;var meta=chart.getDatasetMeta(di);if(!meta||!meta.data)return;meta.data.forEach(function(bar,i){var v=ds.data[i];if(v==null||isNaN(v)||v===0)return;var x=bar.x,y=bar.y;if(x==null||y==null)return;ctx.fillText(num(v).toFixed(0),x,y-6);});});ctx.restore();}};
 if(typeof Chart!=="undefined"){try{Chart.register(valueLabelPlugin);}catch(e){}}
