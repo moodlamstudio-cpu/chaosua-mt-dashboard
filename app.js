@@ -69,9 +69,9 @@ async function exportEditablePpt(section){
     var titles={annual:"Annual Actual Sales",monthly:"Monthly Sales Performance",category:"Sales by Category"},title=titles[section]||"Sales Chart",sub=label()+" | "+MONTHS[selFrom-1]+"–"+MONTHS[selTo-1]+" "+fy+(activeCat?" | "+activeCat:"")+(activeSku?" | "+activeSku:"");
     slide.addImage({data:logo,x:11.75,y:.16,w:.67,h:.99});
     slide.addText(title,{x:.55,y:.28,w:10.7,h:.38,fontFace:"Tahoma",fontSize:22,bold:true,color:"111111",margin:0});
-    slide.addShape(pptx.ShapeType.line,{x:.55,y:.76,w:1.0,h:0,line:{color:"B21F2D",width:2.2}});
+    slide.addShape(pptx.ShapeType.line,{x:.55,y:.76,w:2.35,h:0,line:{color:"B21F2D",width:2.8}});
     slide.addText(sub,{x:.55,y:.84,w:10.8,h:.25,fontFace:"Tahoma",fontSize:10,color:"666666",margin:0});
-    var common={x:.55,y:1.25,w:12.2,h:5.42,showTitle:false,showLegend:true,legendPos:"b",showValue:true,showCatName:false,showPercent:false,fontFace:"Tahoma",chartColors:["1F1F1F","777777","B21F2D","BDBDBD","555555","D9D9D9"],showBorder:false,catAxisLabelFontFace:"Tahoma",valAxisLabelFontFace:"Tahoma",catAxisLabelFontSize:10,valAxisLabelFontSize:10,valAxisTitle:"MB",showValue:true};
+    var common={x:.55,y:1.25,w:12.2,h:5.42,showTitle:false,showLegend:true,legendPos:"b",showValue:true,showCatName:false,showPercent:false,fontFace:"Tahoma",chartColors:["262626","8C8C8C","B21F2D","C9C9C9","5E5E5E","E7E7E7"],showBorder:false,catAxisLabelFontFace:"Tahoma",valAxisLabelFontFace:"Tahoma",catAxisLabelColor:"666666",valAxisLabelColor:"666666",catAxisLineColor:"D9D9D9",valAxisLineColor:"D9D9D9",catAxisLabelFontSize:10,valAxisLabelFontSize:10,valAxisTitle:"MB",showValue:true};
     if(section==="annual"){common.showLegend=false;slide.addChart(pptx.ChartType.bar,pptChartSeries(chart),common);}
     else if(section==="category"){common.showLegend=true;common.legendPos="r";common.holeSize=58;common.showPercent=true;common.showValue=false;slide.addChart(pptx.ChartType.doughnut,pptChartSeries(chart),common);}
     else {var bars=pptChartSeries(chart,function(ds){return (ds.type||"")==="bar";}),lines=pptChartSeries(chart,function(ds){return (ds.type||"")==="line";});common.showValue=false;slide.addChart([{type:pptx.ChartType.bar,data:bars},{type:pptx.ChartType.line,data:lines}],common);}
