@@ -307,6 +307,12 @@ def last_sales_date(last_closed):
     _EPOCH = _dt.date(1899, 12, 30)
 
     def to_date(v):
+        # openpyxl returns real Excel date cells as datetime/date objects;
+        # handle them before the legacy serial/string fallbacks.
+        if isinstance(v, _dt.datetime):
+            return v.date()
+        if isinstance(v, _dt.date):
+            return v
         if isinstance(v, int) and v > 10000:
             return _EPOCH + _dt.timedelta(days=int(v))
         if isinstance(v, str):
