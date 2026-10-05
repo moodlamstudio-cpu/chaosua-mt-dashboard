@@ -25,7 +25,7 @@ import re
 from collections import defaultdict
 from openpyxl import load_workbook
 
-SRC = r"C:\Users\teera\OneDrive - TIA NGEE HIANG (CHAOSUA) CO.,LTD\Desktop\Chaosua_Ice\Data\Sales report\Sale Lotus Makro_Dashboard_Pivot.xlsx"
+SRC = r"C:/Users/teera/OneDrive - TIA NGEE HIANG (CHAOSUA) CO.,LTD/Desktop/Chaosua_Ice/Data/Sales report/Sale Lotus Makro_Dashboard_Pivot.xlsx"
 OUT = "data_channels.json"
 SHIP_OUT = "shipto_data.json"
 SKU_WEEKLY_OUT = "sku_weekly_data.json"
@@ -67,6 +67,22 @@ def load_product_master(wb):
         pm[str(r[0])] = {"d": (r[4] or ""), "g": (r[8] or ""), "c1": (r[13] or "")}
     return pm
 
+def _parse_full_date(v):
+    import datetime as _dt
+    if isinstance(v, _dt.datetime):
+        return v.date()
+    if isinstance(v, _dt.date):
+        return v
+    if isinstance(v, (int, float)) and v > 10000:
+        return _dt.date(1899, 12, 30) + _dt.timedelta(days=int(v))
+    if isinstance(v, str):
+        for fmt in ("%d/%m/%Y", "%d-%m-%Y", "%Y-%m-%d"):
+            try:
+                return _dt.datetime.strptime(v.strip(), fmt).date()
+            except ValueError:
+                pass
+    return None
+
 def build():
     wb = load_workbook(SRC, read_only=True, data_only=True)
     pm = load_product_master(wb)
@@ -85,6 +101,9 @@ def build():
         except (TypeError, ValueError):
             continue
         if not (1 <= month <= 12):
+            continue
+        raw_date = _parse_full_date(r[3])
+        if raw_date is not None and raw_date > datetime.date.today():
             continue
         ch = norm_channel(r[5])          # Customer = channel
         channel_groups[ch] = str(r[4] or "MT").strip() or "MT"
@@ -340,6 +359,8 @@ def last_sales_date(last_closed):
         d = to_date(r[3])
         if d is None:
             continue
+        if d > _dt.date.today():
+            continue
         # Scope to the last closed month using the PARSED Date month (the raw
         # sheet's Month column buckets some rows oddly; the Date itself is
         # authoritative for "latest sales as of"). Exclude forward/future rows.
@@ -419,6 +440,9 @@ def write_shipto_data():
             continue
         if not 1 <= month <= 12 or val == 0:
             continue
+        raw_date = _parse_full_date(r[3])
+        if raw_date is not None and raw_date > datetime.date.today():
+            continue
         ship = str(r[6] or "").strip()
         if not ship:
             continue
@@ -487,6 +511,9 @@ def write_sku_weekly_data():
         except (TypeError, ValueError, IndexError):
             continue
         if not (1 <= month <= 12 and 1 <= week <= 53) or baht == 0:
+            continue
+        raw_date = _parse_full_date(r[3])
+        if raw_date is not None and raw_date > datetime.date.today():
             continue
         channel = norm_channel(r[5])
         material = str(r[7] or "").strip()
