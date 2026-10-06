@@ -83,6 +83,15 @@ def _parse_full_date(v):
                 pass
     return None
 
+def _normalize_source_date(raw, year, month):
+    d = _parse_full_date(raw)
+    if d is not None and d.year == year and d.month != month and d.day == month:
+        try:
+            return datetime.date(year, month, d.month)
+        except ValueError:
+            pass
+    return d
+
 def build():
     wb = load_workbook(SRC, read_only=True, data_only=True)
     pm = load_product_master(wb)
@@ -102,7 +111,7 @@ def build():
             continue
         if not (1 <= month <= 12):
             continue
-        raw_date = _parse_full_date(r[3])
+        raw_date = _normalize_source_date(r[3], year, month)
         if raw_date is not None and raw_date > datetime.date.today():
             continue
         if raw_date is not None:
@@ -361,6 +370,12 @@ def last_sales_date(last_closed):
         d = to_date(r[3])
         if d is None:
             continue
+        try:
+            raw_month = int(r[1])
+            if d.year == year and d.month != raw_month and d.day == raw_month:
+                d = _dt.date(year, raw_month, d.month)
+        except (TypeError, ValueError):
+            pass
         if d > _dt.date.today():
             continue
         # Scope to the last closed month using the PARSED Date month (the raw
@@ -442,7 +457,7 @@ def write_shipto_data():
             continue
         if not 1 <= month <= 12 or val == 0:
             continue
-        raw_date = _parse_full_date(r[3])
+        raw_date = _normalize_source_date(r[3], year, month)
         if raw_date is not None and raw_date > datetime.date.today():
             continue
         if raw_date is not None:
@@ -516,7 +531,7 @@ def write_sku_weekly_data():
             continue
         if not (1 <= month <= 12 and 1 <= week <= 53) or baht == 0:
             continue
-        raw_date = _parse_full_date(r[3])
+        raw_date = _normalize_source_date(r[3], year, month)
         if raw_date is not None and raw_date > datetime.date.today():
             continue
         if raw_date is not None:
