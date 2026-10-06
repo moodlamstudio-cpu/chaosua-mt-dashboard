@@ -105,6 +105,8 @@ def build():
         raw_date = _parse_full_date(r[3])
         if raw_date is not None and raw_date > datetime.date.today():
             continue
+        if raw_date is not None:
+            year, month = raw_date.year, raw_date.month
         ch = norm_channel(r[5])          # Customer = channel
         channel_groups[ch] = str(r[4] or "MT").strip() or "MT"
         mat = str(r[7])                  # Material (shifted by Ship-to party)
@@ -443,6 +445,8 @@ def write_shipto_data():
         raw_date = _parse_full_date(r[3])
         if raw_date is not None and raw_date > datetime.date.today():
             continue
+        if raw_date is not None:
+            year, month = raw_date.year, raw_date.month
         ship = str(r[6] or "").strip()
         if not ship:
             continue
@@ -515,6 +519,8 @@ def write_sku_weekly_data():
         raw_date = _parse_full_date(r[3])
         if raw_date is not None and raw_date > datetime.date.today():
             continue
+        if raw_date is not None:
+            year, month = raw_date.year, raw_date.month
         channel = norm_channel(r[5])
         material = str(r[7] or "").strip()
         if not material:
