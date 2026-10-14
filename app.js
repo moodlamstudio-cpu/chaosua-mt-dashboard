@@ -97,12 +97,18 @@ function selAll(){
     // Merge prior-year history for ALL available years so the annual chart can show 2023/2024 etc. too.
     var hys=c.history||{};Object.keys(hys).forEach(function(y){out.history[y]=out.history[y]||{};var h=hys[y]||{};for(var m=1;m<=12;m++)out.history[y][String(m)]=num(out.history[y][String(m)])+num(h[String(m)]||0);});
     var an=c.annual||{};Object.keys(an).forEach(function(y){out.annual[y]=num(out.annual[y]||0)+num(an[y]);});
-    var ci=c.category&&c.category.items||[];ci.forEach(function(it){var ex=null;for(var k=0;k<out.category.items.length;k++)if(out.category.items[k].name===it.name){ex=out.category.items[k];break;}if(ex)ex.mb=ex.mb+it.mb;else out.category.items.push({name:it.name,mb:it.mb,pct:it.pct});});
+    var ci=c.category&&c.category.items||[];ci.forEach(function(it){var ex=null;for(var k=0;k<out.category.items.length;k++)if(out.category.items[k].name===it.name){ex=out.category.items[k];break;}if(ex)ex.mb=ex.mb+num(it.mb);else out.category.items.push({name:it.name,mb:num(it.mb),pct:0});});
+    // Recompute contribution after merging channels. The source pct belongs to each
+    // individual channel and must never be carried into an all-channel aggregate.
+    // Keep the same total/ordering as the displayed category values.
     // Merge category series for linked category filtering.
     var mbc=c.monthly_by_cat||{},hbc=c.history_by_cat||{},abc=c.annual_by_cat||{};mergeFocusMaps(out.monthly_by_cat,out.history_by_cat,out.annual_by_cat,mbc,hbc,abc);
     var mbs=c.monthly_by_sku||{},hbs=c.history_by_sku||{},abs=c.annual_by_sku||{};mergeFocusMaps(out.monthly_by_sku,out.history_by_sku,out.annual_by_sku,mbs,hbs,abs);
   });
   out.total_mb=0;for(var m=1;m<=12;m++)out.total_mb+=num(out.monthly[String(m)]||0);
+  var catTotal=0;out.category.items.forEach(function(it){catTotal+=num(it.mb);});
+  out.category.items.forEach(function(it){it.pct=catTotal?num(it.mb)/catTotal*100:0;});
+  out.category.items.sort(function(a,b){return num(b.mb)-num(a.mb);});
   var tsa=[],tsbc={};selChans.forEach(function(id){var cs=SD[id];if(!cs)return;if(cs.top_sku_all)tsa=tsa.concat(cs.top_sku_all);var t=cs.top_sku_by_cat||{};Object.keys(t).forEach(function(cat){tsbc[cat]=(tsbc[cat]||[]).concat(t[cat]);});});out.top_sku_all=mergeSkuList(tsa);Object.keys(tsbc).forEach(function(cat){tsbc[cat]=mergeSkuList(tsbc[cat]);});out.top_sku_by_cat=tsbc;
   return out;
 }
