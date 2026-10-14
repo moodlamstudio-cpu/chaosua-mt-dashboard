@@ -20,6 +20,10 @@ STATE_FILE = os.path.join(WORKDIR, ".webdata_state.json")
 REMOTE = "origin"
 BRANCH = "master"
 PROD_URL = "https://moodlamstudio-cpu.github.io/chaosua-mt-dashboard/"
+# The Hermes cron runner may use a lightweight Python without openpyxl.
+# Regeneration must use the project environment that has the Excel parser.
+HERMES_PYTHON = r"C:/Users/teera/AppData/Local/hermes/hermes-agent/venv/Scripts/python.exe"
+REGEN_PYTHON = HERMES_PYTHON if os.path.exists(HERMES_PYTHON) else sys.executable
 
 def sh(cmd, cwd=WORKDIR, timeout=600):
     r = subprocess.run(cmd, cwd=cwd, capture_output=True, text=True,
@@ -58,7 +62,7 @@ def main():
             shutil.copy2(p, os.path.join(tmp, f))
 
     # 3. รัน regenerate
-    rc, out = sh([sys.executable, "regenerate_webdata.py"])
+    rc, out = sh([REGEN_PYTHON, "regenerate_webdata.py"])
     if rc != 0:
         for f in OUT_FILES:  # rollback
             bp = os.path.join(tmp, f)
