@@ -21,6 +21,7 @@ This script only refreshes numbers; it does not change UI/business formulas.
 """
 import json
 import datetime
+import os
 import re
 from collections import defaultdict
 from openpyxl import load_workbook
@@ -31,6 +32,7 @@ SHIP_OUT = "shipto_data.json"
 SKU_WEEKLY_OUT = "sku_weekly_data.json"
 
 FISCAL_YEAR = 2026   # FISCAL year shown by the dashboard (unchanged)
+AS_OF_DATE = datetime.date.fromisoformat(os.environ["DASHBOARD_ASOF"]) if os.environ.get("DASHBOARD_ASOF") else datetime.date.today()
 
 def norm_channel(c):
     s = str(c).strip()
@@ -112,7 +114,7 @@ def build():
         if not (1 <= month <= 12):
             continue
         raw_date = _normalize_source_date(r[3], year, month)
-        if raw_date is not None and raw_date > datetime.date.today():
+        if raw_date is not None and raw_date > AS_OF_DATE:
             continue
         if raw_date is not None:
             year, month = raw_date.year, raw_date.month
@@ -376,7 +378,7 @@ def last_sales_date(last_closed):
                 d = _dt.date(year, raw_month, d.month)
         except (TypeError, ValueError):
             pass
-        if d > _dt.date.today():
+        if d > AS_OF_DATE:
             continue
         # Scope to the last closed month using the PARSED Date month (the raw
         # sheet's Month column buckets some rows oddly; the Date itself is
@@ -458,7 +460,7 @@ def write_shipto_data():
         if not 1 <= month <= 12 or val == 0:
             continue
         raw_date = _normalize_source_date(r[3], year, month)
-        if raw_date is not None and raw_date > datetime.date.today():
+        if raw_date is not None and raw_date > AS_OF_DATE:
             continue
         if raw_date is not None:
             year, month = raw_date.year, raw_date.month
@@ -532,7 +534,7 @@ def write_sku_weekly_data():
         if not (1 <= month <= 12 and 1 <= week <= 53) or baht == 0:
             continue
         raw_date = _normalize_source_date(r[3], year, month)
-        if raw_date is not None and raw_date > datetime.date.today():
+        if raw_date is not None and raw_date > AS_OF_DATE:
             continue
         if raw_date is not None:
             year, month = raw_date.year, raw_date.month
