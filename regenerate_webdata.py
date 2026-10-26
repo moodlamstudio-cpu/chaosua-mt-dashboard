@@ -550,8 +550,8 @@ def write_sku_weekly_data():
         bucket[1] += ton
         bucket[2] += ea
         bucket[3] += baht
-        d = parse_date(r[3])
-        if d and (latest is None or d > latest):
+        d = raw_date
+        if d is not None and d <= AS_OF_DATE and (latest is None or d > latest):
             latest = d
     wb.close()
     rows = []
