@@ -9,7 +9,7 @@ Flow: ตรวจต้นทาง -> regenerate -> reconcile -> commit -> pus
 - ถ้าข้อมูลไม่เปลี่ยน -> ไม่ commit (exit 0 เงียบ)
 - ถ้าผิดพลาด -> exit 1 (cron ส่ง error alert)
 """
-import json, os, subprocess, sys, tempfile, shutil, datetime
+import json, os, subprocess, sys, tempfile, shutil, datetime, hashlib
 
 WORKDIR = os.path.expanduser(
     r"~/OneDrive - TIA NGEE HIANG (CHAOSUA) CO.,LTD/Desktop/Chaosua_Ice/Web/LotusMakro-Dashboard")
@@ -26,9 +26,23 @@ HERMES_PYTHON = r"C:/Users/teera/AppData/Local/hermes/hermes-agent/venv/Scripts/
 REGEN_PYTHON = HERMES_PYTHON if os.path.exists(HERMES_PYTHON) else sys.executable
 
 def sh(cmd, cwd=WORKDIR, timeout=600):
-    r = subprocess.run(cmd, cwd=cwd, capture_output=True, text=True,
+    env = dict(os.environ)
+    for key in ("PYTHONPATH", "PYTHONHOME", "VIRTUAL_ENV"):
+        env.pop(key, None)
+    # Scheduled refreshes must not inherit a stale one-off as-of override.
+    env.pop("DASHBOARD_ASOF", None)
+    env["PYTHONNOUSERSITE"] = "1"
+    env["PYTHONUTF8"] = "1"
+    r = subprocess.run(cmd, cwd=cwd, env=env, capture_output=True, text=True,
                        encoding="utf-8", errors="replace", timeout=timeout)
     return r.returncode, (r.stdout or "") + (r.stderr or "")
+
+def sha256_file(path):
+    h = hashlib.sha256()
+    with open(path, "rb") as fp:
+        for block in iter(lambda: fp.read(1024 * 1024), b""):
+            h.update(block)
+    return h.hexdigest()
 
 def main():
     dry = os.environ.get("DRY_RUN") == "1"
@@ -39,12 +53,13 @@ def main():
         print("FAIL: ไม่พบไฟล์ต้นทาง", SRC_XLSX); sys.exit(1)
 
     src_mtime = os.path.getmtime(SRC_XLSX)
+    src_sha256 = sha256_file(SRC_XLSX)
     state = {}
     if os.path.exists(STATE_FILE):
         try: state = json.load(open(STATE_FILE, encoding="utf-8"))
         except Exception: state = {}
-    if state.get("src_mtime") == src_mtime:
-        print("ไม่มีข้อมูลใหม่จากต้นทาง (mtime เท่าเดิม) — ข้าม"); sys.exit(0)
+    if state.get("src_mtime") == src_mtime and state.get("src_sha256") == src_sha256:
+        print("ไม่มีข้อมูลใหม่จากต้นทาง (mtime และ SHA-256 เท่าเดิม) — ข้าม"); sys.exit(0)
     # ถ้าเพิ่ง commit ไปแล้ว (state ล่าสุด = commit ล่าสุด) และไฟล์ไม่เปลี่ยน -> ข้าม
 
     # 1. git status ก่อน (รายงานไฟล์ค้าง แต่ไม่แตะ)
@@ -82,7 +97,13 @@ def main():
         except Exception:
             same = False
         if same:
-            print("ข้อมูลเหมือน HEAD — ไม่ต้อง commit"); sys.exit(0)
+            current = json.load(open(os.path.join(WORKDIR, OUT_FILES[0]), encoding="utf-8"))
+            _, head = sh(["git", "rev-parse", "HEAD"])
+            json.dump({"src_mtime": src_mtime, "src_sha256": src_sha256,
+                       "last_date": current.get("_lastSalesDate", "?"),
+                       "commit": head.strip()[:7], "ran_at": datetime.datetime.now().isoformat()},
+                      open(STATE_FILE, "w", encoding="utf-8"), ensure_ascii=False, indent=2)
+            print("ข้อมูลเหมือน HEAD — ไม่ต้อง commit; บันทึก source hash แล้ว"); sys.exit(0)
 
     new = json.load(open(os.path.join(WORKDIR, OUT_FILES[0]), encoding="utf-8"))
     last_date = new.get("_lastSalesDate", "?")
@@ -102,7 +123,7 @@ def main():
         print("FAIL: commit ไม่สำเร็จ (อาจไม่มีอะไรเปลี่ยน)"); sys.exit(0 if "nothing to commit" in out.lower() else 1)
 
     # 6. pull --rebase (กัน conflict) แล้ว push
-    rc, out = sh(["git", "pull", "--rebase", REMOTE, BRANCH], timeout=300)
+    rc, out = sh(["git", "-c", "rebase.autoStash=true", "pull", "--rebase", REMOTE, BRANCH], timeout=300)
     if rc != 0:
         print("WARN pull --rebase:", out[-500:])
     rc, out = sh(["git", "push", REMOTE, BRANCH], timeout=300)
@@ -120,7 +141,7 @@ def main():
         prod_status = f"ERROR {e}"
 
     # 8. state file
-    json.dump({"src_mtime": src_mtime, "last_date": last_date, "commit": commit_hash,
+    json.dump({"src_mtime": src_mtime, "src_sha256": src_sha256, "last_date": last_date, "commit": commit_hash,
                "ran_at": datetime.datetime.now().isoformat()},
               open(STATE_FILE, "w", encoding="utf-8"), ensure_ascii=False, indent=2)
 
