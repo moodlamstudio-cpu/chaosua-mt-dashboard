@@ -159,11 +159,11 @@ def build():
     chan_data = {}
     totals = []
     for ch, s in ch_struct.items():
-        # Write every channel that has any sales data (current OR historical), so the
-        # all-channel annual totals reconcile to the workbook. Channels are only added
-        # to the UI picker (_channels) when they have current-year (2026) activity.
-        total_all = sum(v for v in s["annual"].values())
-        if total_all <= 0:
+        # Retain channels with signed month-level activity, even when lifetime net
+        # sales are <= 0 (for example, historical return/credit-only channels).
+        # The UI picker still includes only channels with positive current-year sales.
+        has_nonzero_history = any(v != 0 for months in s["history"].values() for v in months.values())
+        if not has_nonzero_history:
             continue
         mats = sorted(s["mat"].items(), key=lambda x: -x[1][0])
         tot = sum(v[0] for v in (x[1] for x in mats))
